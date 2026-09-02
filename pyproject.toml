@@ -12,6 +12,7 @@ dependencies = ["torch>=2.1", "pyyaml>=6.0", "tqdm>=4.66"]
 
 [project.optional-dependencies]
 hf = ["transformers>=4.51", "datasets>=3.0", "accelerate>=1.0"]
+kvbridge = ["kvbridge @ git+https://github.com/Yunbo-max/kvbridge.git@0d75f31dcde6eeceaa609d3affed6ca1401deb77"]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
@@ -24,4 +25,3 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-

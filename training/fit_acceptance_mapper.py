@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Train the phase-2 low-rank mapper against the block-acceptance surrogate.
 
-The default command trains 500 steps with batch size 1 and gradient accumulation.
-Use ``--initialize-only`` to create the zero-gated adapter without training.
+``--steps`` means optimizer updates.  With gradient accumulation ``a`` the script
+therefore consumes exactly ``steps * a`` microbatches.  Target and draft weights are
+frozen; only the mapper residual and scalar gate receive gradients.
 """
 
 from __future__ import annotations
@@ -19,9 +20,10 @@ import torch
 from common import iter_texts, load_hf_pair
 from torch.nn.utils import clip_grad_norm_
 
-from verifier_anchored_sd.spec_decode.hf_runtime import forward_incremental
+from verifier_anchored_sd.spec_decode.hf_runtime import capture_rotary_factors, forward_incremental
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
 from verifier_anchored_sd.training.block_acceptance_loss import block_acceptance_loss
+from verifier_anchored_sd.training.schedule import optimizer_microbatch_schedule
 
 
 def main():
@@ -31,7 +33,7 @@ def main():
     ap.add_argument("--target", default="Qwen/Qwen3-4B")
     ap.add_argument("--draft", default="Qwen/Qwen3-1.7B")
     ap.add_argument("--text-file", help="disjoint JSONL/raw text prefixes; defaults to streaming FineWeb-Edu")
-    ap.add_argument("--steps", type=int, default=500)
+    ap.add_argument("--steps", type=int, default=500, help="optimizer updates, not microbatches")
     ap.add_argument("--max-steps", type=int, default=1000)
     ap.add_argument("--context-lengths", default="512,1024,2048")
     ap.add_argument("--gamma", type=int, default=4)
@@ -48,6 +50,9 @@ def main():
     ap.add_argument("--merge-output", help="optional final checkpoint with W0+gUV^T merged")
     ap.add_argument("--initialize-only", action="store_true")
     args = ap.parse_args()
+    if args.steps > args.max_steps:
+        raise ValueError("--steps may not exceed --max-steps")
+
     mapper = RidgeKVMapper.load(args.mapper, map_location=args.device)
     if mapper.u is None:
         mapper.add_low_rank(args.rank)
@@ -63,10 +68,14 @@ def main():
         for parameter in model.parameters():
             parameter.requires_grad_(False)
     device = next(target.parameters()).device
-    baseline_mapper = RidgeKVMapper.load(args.mapper, map_location=device)
-    optimizer = torch.optim.AdamW(mapper.residual_parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(
+        mapper.residual_parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
     lengths = [int(x) for x in args.context_lengths.split(",")]
-    text_stream = iter_texts(args.text_file, limit=max(args.max_steps * 8, 4000))
+    if not lengths or min(lengths) < 2:
+        raise ValueError("context lengths must be >=2")
+    text_limit = max(args.max_steps * args.grad_accum * 8, 4000)
+    text_stream = iter_texts(args.text_file, limit=text_limit)
     token_buffer = torch.empty(0, dtype=torch.long)
 
     def next_prefix(length: int) -> torch.Tensor:
@@ -76,7 +85,8 @@ def main():
                 text = next(text_stream)
             except StopIteration as exc:
                 raise RuntimeError("not enough training text; provide a larger disjoint --text-file") from exc
-            token_buffer = torch.cat((token_buffer, tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"][0]))
+            encoded = tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+            token_buffer = torch.cat((token_buffer, encoded))
         result, token_buffer = token_buffer[:length], token_buffer[length:]
         return result
 
@@ -85,10 +95,15 @@ def main():
 
     def train_one(ids: torch.Tensor):
         ids = ids.unsqueeze(0).to(device)
-        target_full = forward_incremental(target, ids)
-        target_next = probs(target_full.logits)
-        baseline_cache = baseline_mapper.map(target_full.cache)
-        mapped_cache = mapper.map(target_full.cache)
+        with torch.inference_mode():
+            target_full = forward_incremental(target, ids)
+            target_next = probs(target_full.logits)
+            positions = torch.arange(ids.shape[1], device=device).unsqueeze(0)
+            draft_rotary = capture_rotary_factors(draft, positions)
+            baseline_cache = mapper.map(
+                target_full.cache, draft_rotary=draft_rotary, include_residual=False
+            )
+        mapped_cache = mapper.map(target_full.cache, draft_rotary=draft_rotary)
         draft_prefix = mapped_cache.slice(0, mapped_cache.seq_len - 1).clone()
         draft_boundary = forward_incremental(draft, ids[:, -1:], draft_prefix, inference=False)
         q = probs(draft_boundary.logits)
@@ -103,45 +118,69 @@ def main():
             draft_cache.append(step.cache)
             q = probs(step.logits)
         proposal_ids = torch.tensor([tokens], device=device)
-        target_step = forward_incremental(target, proposal_ids, target_full.cache)
-        p_rows = [target_next[0]]
-        if args.gamma > 1:
-            p_rows.extend(torch.softmax(target_step.logits[0, :-1].float(), dim=-1))
-        p = torch.stack(p_rows).unsqueeze(0)
+        with torch.inference_mode():
+            target_step = forward_incremental(target, proposal_ids, target_full.cache)
+            p_rows = [target_next[0]]
+            if args.gamma > 1:
+                p_rows.extend(torch.softmax(target_step.logits[0, :-1].float(), dim=-1))
+            p = torch.stack(p_rows).unsqueeze(0)
         q_tensor = torch.stack(q_rows).unsqueeze(0)
         block_loss, metrics = block_acceptance_loss(p, q_tensor)
+
         delta = torch.zeros((), device=device, dtype=torch.float32)
-        denom = baseline_cache.layers[0].key.float().pow(2).sum()
+        denom = torch.zeros((), device=device, dtype=torch.float32)
         for current, base in zip(mapped_cache.layers, baseline_cache.layers):
             delta = delta + (current.key.float() - base.key.float()).pow(2).sum()
             delta = delta + (current.value.float() - base.value.float()).pow(2).sum()
-            denom = denom + base.value.float().pow(2).sum()
+            denom = denom + base.key.float().pow(2).sum() + base.value.float().pow(2).sum()
         reg = delta / (denom + 1e-6)
-        return block_loss + args.lambda_reg * reg, float(metrics["expected_length"].mean()), float(reg.detach())
+        return block_loss + args.lambda_reg * reg, metrics["expected_length"].mean(), reg.detach()
 
     history = []
     optimizer.zero_grad(set_to_none=True)
-    for step in range(1, args.steps + 1):
-        length = lengths[(step - 1) % len(lengths)]
+    micro_index = 0
+    current_step = 0
+    sums = {"loss": 0.0, "expected_length": 0.0, "regularizer": 0.0}
+    for optimizer_step, microbatch in optimizer_microbatch_schedule(args.steps, args.grad_accum):
+        if optimizer_step != current_step:
+            current_step = optimizer_step
+            sums = {"loss": 0.0, "expected_length": 0.0, "regularizer": 0.0}
+        length = lengths[micro_index % len(lengths)]
+        micro_index += 1
         loss, expected_length, reg = train_one(next_prefix(length))
         (loss / args.grad_accum).backward()
-        if step % args.grad_accum == 0 or step == args.steps:
-            clip_grad_norm_(mapper.residual_parameters(), args.grad_clip)
-            optimizer.step()
-            optimizer.zero_grad(set_to_none=True)
-        row = {"step": step, "loss": float(loss.detach()), "expected_length": expected_length, "regularizer": reg, "context_length": length}
+        sums["loss"] += float(loss.detach())
+        sums["expected_length"] += float(expected_length)
+        sums["regularizer"] += float(reg)
+
+        if microbatch != args.grad_accum:
+            continue
+        clip_grad_norm_(mapper.residual_parameters(), args.grad_clip)
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        row = {
+            "optimizer_step": optimizer_step,
+            "microbatches_seen": micro_index,
+            "loss": sums["loss"] / args.grad_accum,
+            "expected_length": sums["expected_length"] / args.grad_accum,
+            "regularizer": sums["regularizer"] / args.grad_accum,
+        }
         history.append(row)
-        if step == 1 or step % 10 == 0:
+        if optimizer_step == 1 or optimizer_step % 10 == 0:
             print(json.dumps(row))
-        if step % args.save_every == 0 or step == args.steps:
+        if optimizer_step % args.save_every == 0 or optimizer_step == args.steps:
             mapper.save(args.output)
-            torch.save({"optimizer": optimizer.state_dict(), "step": step, "history": history}, args.output + ".optim.pt")
+            torch.save(
+                {"optimizer": optimizer.state_dict(), "optimizer_step": optimizer_step, "history": history},
+                args.output + ".optim.pt",
+            )
+
     Path(args.output + ".json").write_text(json.dumps({"args": vars(args), "history": history}, indent=2))
     if args.merge_output:
         merged = RidgeKVMapper.from_state_dict(mapper.state_dict()).merge_residual()
         merged.save(args.merge_output)
         print(f"saved merged inference mapper to {args.merge_output}")
-    print(f"trained {args.steps} steps and saved {args.output}")
+    print(f"trained {args.steps} optimizer steps ({micro_index} microbatches) and saved {args.output}")
 
 
 if __name__ == "__main__":

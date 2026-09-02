@@ -1,4 +1,11 @@
-"""Target-to-draft KV ridge mapping and mergeable low-rank residuals."""
+"""Target-to-draft KV mapping plus mergeable low-rank acceptance residuals.
+
+The serving mapper is intentionally small in API surface.  Production E0 fitting is
+delegated to the paper-faithful KVBridge backend, then imported here so the
+speculative-decoding runtime and phase-2 residual trainer share one checkpoint type.
+The important layout is cross-head: every draft head may read *all* verifier KV
+heads from every selected verifier layer.
+"""
 
 from __future__ import annotations
 
@@ -9,43 +16,55 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from .cache_state import CacheState, LayerKV
-
-
-def default_layer_selection(target_layers: int, draft_layers: int, k: int = 8) -> list[list[int]]:
-    """Choose evenly spaced source layers, excluding duplicate indices."""
-    if target_layers < 1 or draft_layers < 1 or k < 1:
-        raise ValueError("layer counts and k must be positive")
-    k = min(k, target_layers)
-    result = []
-    for d in range(draft_layers):
-        center = round((d + 0.5) * target_layers / draft_layers - 0.5)
-        offsets = sorted(range(target_layers), key=lambda i: (abs(i - center), i))
-        result.append(sorted(offsets[:k]))
-    return result
+from .cache_state import CacheState, LayerKV, RotaryFactors
 
 
 @dataclass
 class MapperMetadata:
     target_layers: int
     draft_layers: int
-    kv_heads: int
+    target_kv_heads: int
+    draft_kv_heads: int
     head_dim: int
     layer_selection: list[list[int]]
     lambda_: float
+    content_space: bool = True
+
+    @classmethod
+    def from_dict(cls, value: Mapping) -> MapperMetadata:
+        data = dict(value)
+        # Backward compatibility for the pre-audit toy checkpoints.
+        if "target_kv_heads" not in data and "kv_heads" in data:
+            data["target_kv_heads"] = data["kv_heads"]
+            data["draft_kv_heads"] = data["kv_heads"]
+            data.pop("kv_heads")
+        data.setdefault("content_space", False)
+        return cls(**data)
 
 
 class RidgeKVMapper:
-    """Per draft-layer/head affine mapper with an optional mergeable LoRA-like residual."""
+    """Affine cross-head KV mapper with an optional mergeable low-rank residual.
+
+    ``weights`` is ``[draft_layers, 2, draft_heads, head_dim, max_input_dim]``.
+    For a draft layer whose selected verifier layers are ``S``, the active input
+    width is ``len(S) * target_kv_heads * head_dim``.  Feature order is layer-major,
+    then source-head-major, then head dimension.
+    """
 
     def __init__(self, metadata: MapperMetadata, weights: torch.Tensor, bias: torch.Tensor) -> None:
-        # weights: [draft_layers, 2, heads, out_dim, in_dim]
-        # bias:    [draft_layers, 2, heads, out_dim]
-        expected = (metadata.draft_layers, 2, metadata.kv_heads, metadata.head_dim)
-        if tuple(weights.shape[:3]) != expected[:3] or weights.shape[3] != metadata.head_dim:
+        expected_prefix = (
+            metadata.draft_layers,
+            2,
+            metadata.draft_kv_heads,
+            metadata.head_dim,
+        )
+        if tuple(weights.shape[:4]) != expected_prefix:
             raise ValueError(f"unexpected mapper weight shape {weights.shape}")
-        if tuple(bias.shape) != expected:
+        if tuple(bias.shape) != expected_prefix:
             raise ValueError(f"unexpected mapper bias shape {bias.shape}")
+        required = max(len(x) for x in metadata.layer_selection) * metadata.target_kv_heads * metadata.head_dim
+        if weights.shape[-1] < required:
+            raise ValueError("mapper weight input width is smaller than selected cross-head features")
         self.metadata = metadata
         self.weights = weights
         self.bias = bias
@@ -61,44 +80,93 @@ class RidgeKVMapper:
     def in_dim(self) -> int:
         return self.weights.shape[-1]
 
-    def _map_kind(self, x: torch.Tensor, layer: int, kind: int) -> torch.Tensor:
-        # x: [B, H*k, T, D], output: [B, H, T, D]
+    def to(self, device: str | torch.device, *, dtype: torch.dtype | None = None) -> RidgeKVMapper:
+        self.weights = self.weights.to(device=device, dtype=dtype)
+        self.bias = self.bias.to(device=device, dtype=dtype)
+        if self.u is not None:
+            self.u = nn.Parameter(self.u.to(device=device, dtype=dtype))
+        if self.v is not None:
+            self.v = nn.Parameter(self.v.to(device=device, dtype=dtype))
+        if isinstance(self.gate, nn.Parameter):
+            self.gate = nn.Parameter(self.gate.to(device=device, dtype=dtype))
+        else:
+            self.gate = self.gate.to(device=device, dtype=dtype)
+        return self
+
+    def _features(self, cache: CacheState, selected: Sequence[int], kind: int) -> torch.Tensor:
+        rows = []
+        for layer in selected:
+            tensor = cache.layers[layer].key if kind == 0 else cache.layers[layer].value
+            b, h, t, d = tensor.shape
+            rows.append(tensor.permute(0, 2, 1, 3).reshape(b, t, h * d))
+        return torch.cat(rows, dim=-1)
+
+    def _map_kind(
+        self,
+        x: torch.Tensor,
+        layer: int,
+        kind: int,
+        *,
+        include_residual: bool,
+    ) -> torch.Tensor:
         output_dtype = x.dtype
-        x = x.to(self.weights.dtype)
-        b, _, t, d = x.shape
-        h = self.metadata.kv_heads
-        x = x.reshape(b, h, -1, t, d).permute(0, 1, 3, 2, 4).reshape(b, h, t, -1)
-        w = self.weights[layer, kind]
-        y = torch.einsum("bhti,hoi->bhto", x, w)
-        y = y + self.bias[layer, kind].view(1, h, 1, -1)
-        if self.u is not None and self.v is not None:
+        active = x.shape[-1]
+        compute = x.to(self.weights.dtype)
+        w = self.weights[layer, kind, :, :, :active]
+        y = torch.einsum("btf,hdf->bhtd", compute, w)
+        y = y + self.bias[layer, kind].view(1, self.metadata.draft_kv_heads, 1, -1)
+        if include_residual and self.u is not None and self.v is not None:
             u = self.u[layer, kind]
-            v = self.v[layer, kind]
-            y = y + self.gate.to(y.dtype) * torch.einsum("bhti,hri,hor->bhto", x, v, u)
+            v = self.v[layer, kind, :, :, :active]
+            y = y + self.gate.to(y.dtype) * torch.einsum("btf,hrf,hdr->bhtd", compute, v, u)
         return y.to(output_dtype)
 
-    def map(self, target: CacheState) -> CacheState:
+    def map(
+        self,
+        target: CacheState,
+        *,
+        draft_rotary: RotaryFactors | None = None,
+        include_residual: bool = True,
+    ) -> CacheState:
         if target.num_layers != self.metadata.target_layers:
-            raise ValueError("target cache layer count does not match mapper")
+            raise ValueError("verifier cache layer count does not match mapper")
+        if target.kv_heads != self.metadata.target_kv_heads or target.head_dim != self.metadata.head_dim:
+            raise ValueError("verifier KV geometry does not match mapper")
+        source = target.to_content_space() if self.metadata.content_space else target
         result = []
         for dl, selected in enumerate(self.metadata.layer_selection):
-            keys = torch.cat([target.layers[i].key for i in selected], dim=1)
-            values = torch.cat([target.layers[i].value for i in selected], dim=1)
-            result.append(LayerKV(self._map_kind(keys, dl, 0), self._map_kind(values, dl, 1)))
-        return CacheState(result)
+            keys = self._features(source, selected, 0)
+            values = self._features(source, selected, 1)
+            result.append(
+                LayerKV(
+                    self._map_kind(keys, dl, 0, include_residual=include_residual),
+                    self._map_kind(values, dl, 1, include_residual=include_residual),
+                )
+            )
+        mapped = CacheState(result, keys_are_content=self.metadata.content_space)
+        if self.metadata.content_space:
+            if draft_rotary is None:
+                raise ValueError("content-space mapping requires draft-model RoPE factors")
+            mapped = mapped.apply_rotary(draft_rotary)
+        return mapped
 
     def add_low_rank(self, rank: int = 8) -> None:
         if rank < 1:
             raise ValueError("rank must be positive")
-        shape = (self.metadata.draft_layers, 2, self.metadata.kv_heads)
-        self.u = nn.Parameter(torch.randn(*shape, self.weights.shape[-2], rank, device=self.device, dtype=self.weights.dtype) * 1e-3)
-        self.v = nn.Parameter(torch.randn(*shape, rank, self.weights.shape[-1], device=self.device, dtype=self.weights.dtype) * 1e-3)
+        shape = (self.metadata.draft_layers, 2, self.metadata.draft_kv_heads)
+        self.u = nn.Parameter(
+            torch.randn(*shape, self.metadata.head_dim, rank, device=self.device, dtype=self.weights.dtype)
+            * 1e-3
+        )
+        self.v = nn.Parameter(
+            torch.randn(*shape, rank, self.in_dim, device=self.device, dtype=self.weights.dtype) * 1e-3
+        )
         self.gate = nn.Parameter(torch.tensor(0.0, device=self.device, dtype=self.weights.dtype))
 
     def merge_residual(self) -> RidgeKVMapper:
         if self.u is None or self.v is None:
             return self
-        delta = torch.einsum("...or,...ri->...oi", self.u, self.v)
+        delta = torch.einsum("...dr,...rf->...df", self.u, self.v)
         self.weights = self.weights + self.gate * delta
         self.u = self.v = None
         self.gate = torch.tensor(0.0, device=self.device, dtype=self.weights.dtype)
@@ -111,15 +179,17 @@ class RidgeKVMapper:
 
     def state_dict(self) -> dict:
         return {
-            "weights": self.weights.cpu(), "bias": self.bias.cpu(),
-            "metadata": self.metadata.__dict__, "gate": self.gate.cpu(),
-            "u": None if self.u is None else self.u.cpu(),
-            "v": None if self.v is None else self.v.cpu(),
+            "weights": self.weights.detach().cpu(),
+            "bias": self.bias.detach().cpu(),
+            "metadata": self.metadata.__dict__,
+            "gate": self.gate.detach().cpu(),
+            "u": None if self.u is None else self.u.detach().cpu(),
+            "v": None if self.v is None else self.v.detach().cpu(),
         }
 
     @classmethod
     def from_state_dict(cls, state: Mapping) -> RidgeKVMapper:
-        metadata = MapperMetadata(**state["metadata"])
+        metadata = MapperMetadata.from_dict(state["metadata"])
         mapper = cls(metadata, state["weights"], state["bias"])
         saved_gate = state.get("gate", mapper.gate)
         saved_u, saved_v = state.get("u"), state.get("v")
@@ -139,6 +209,51 @@ class RidgeKVMapper:
     def load(cls, path: str | Path, map_location: str | torch.device = "cpu") -> RidgeKVMapper:
         return cls.from_state_dict(torch.load(path, map_location=map_location, weights_only=False))
 
+    @classmethod
+    def from_kvbridge_artifact(
+        cls,
+        directory: str | Path,
+        *,
+        dtype: torch.dtype = torch.float32,
+    ) -> RidgeKVMapper:
+        """Import a paper-faithful KVBridge artifact into the trainable runtime format."""
+        try:
+            from kvbridge.mapper import CrossModelKVMapper
+        except ImportError as exc:  # pragma: no cover - optional GPU/E0 environment
+            raise RuntimeError("install the kvbridge extra before importing an E0 artifact") from exc
+        external = CrossModelKVMapper.load(directory)
+        source = external.source_signature
+        draft = external.target_signature
+        if source.head_dim != draft.head_dim:
+            raise ValueError("verifier and draft head dimensions must match")
+        max_in = max(weight.shape[1] for weight in external.key_weights)
+        weights = torch.zeros(
+            draft.num_layers,
+            2,
+            draft.num_kv_heads,
+            draft.head_dim,
+            max_in,
+            dtype=dtype,
+        )
+        bias = torch.zeros(draft.num_layers, 2, draft.num_kv_heads, draft.head_dim, dtype=dtype)
+        for layer in range(draft.num_layers):
+            width = external.key_weights[layer].shape[1]
+            weights[layer, 0, :, :, :width] = external.key_weights[layer].permute(0, 2, 1).to(dtype)
+            weights[layer, 1, :, :, :width] = external.value_weights[layer].permute(0, 2, 1).to(dtype)
+            bias[layer, 0] = external.key_biases[layer].to(dtype)
+            bias[layer, 1] = external.value_biases[layer].to(dtype)
+        metadata = MapperMetadata(
+            target_layers=source.num_layers,
+            draft_layers=draft.num_layers,
+            target_kv_heads=source.num_kv_heads,
+            draft_kv_heads=draft.num_kv_heads,
+            head_dim=source.head_dim,
+            layer_selection=[list(x) for x in external.selected_layers],
+            lambda_=external.config.ridge_alpha,
+            content_space=external.config.content_space,
+        )
+        return cls(metadata, weights, bias)
+
 
 def fit_ridge_mapper(
     observations: Mapping[tuple[int, int, str], tuple[torch.Tensor, torch.Tensor]],
@@ -147,100 +262,49 @@ def fit_ridge_mapper(
     draft_layers: int,
     kv_heads: int,
     head_dim: int,
-    layer_selection: Sequence[Sequence[int]] | None = None,
+    layer_selection: Sequence[Sequence[int]],
     lambda_: float = 0.01,
+    content_space: bool = False,
 ) -> RidgeKVMapper:
-    """Fit independent affine ridge regressions.
+    """Small synthetic/test fitter with a caller-supplied layer selection.
 
-    ``observations[(draft_layer, draft_head, kind)]`` contains ``(X, Y)`` with
-    ``X=[N, k*head_dim]`` and ``Y=[N, head_dim]``.  Keeping this interface model
-    agnostic makes calibration reproducible and permits fitting from saved activations.
+    Real E0 fitting must use KVBridge so source-layer selection, cross-head fitting,
+    centered statistics, and RoPE handling match the reference implementation.
     """
     if lambda_ < 0:
         raise ValueError("lambda_ must be non-negative")
-    selection = [list(x) for x in (layer_selection or default_layer_selection(target_layers, draft_layers))]
+    selection = [list(x) for x in layer_selection]
     if len(selection) != draft_layers:
         raise ValueError("one source-layer selection is required per draft layer")
-    w = torch.zeros(draft_layers, 2, kv_heads, head_dim, max(len(x) for x in selection) * head_dim)
-    b = torch.zeros(draft_layers, 2, kv_heads, head_dim)
+    max_in = max(len(x) for x in selection) * kv_heads * head_dim
+    weights = torch.zeros(draft_layers, 2, kv_heads, head_dim, max_in)
+    bias = torch.zeros(draft_layers, 2, kv_heads, head_dim)
     for dl in range(draft_layers):
-        k = len(selection[dl])
+        expected_in = len(selection[dl]) * kv_heads * head_dim
         for h in range(kv_heads):
             for kind, name in enumerate(("k", "v")):
                 x, y = observations[(dl, h, name)]
                 x, y = x.float(), y.float()
                 if x.ndim != 2 or y.ndim != 2 or x.shape[0] != y.shape[0] or y.shape[1] != head_dim:
                     raise ValueError(f"invalid observation shape for {(dl, h, name)}")
-                if x.shape[1] != k * head_dim:
-                    raise ValueError(f"expected {k * head_dim} input features, got {x.shape[1]}")
+                if x.shape[1] != expected_in:
+                    raise ValueError(f"expected {expected_in} cross-head input features, got {x.shape[1]}")
+                if x.shape[0] <= x.shape[1]:
+                    raise ValueError("ridge fit is underdetermined: observations must exceed feature dimension")
                 xb = torch.cat((x, torch.ones(x.shape[0], 1)), dim=1)
                 reg = torch.eye(xb.shape[1], dtype=xb.dtype) * lambda_
                 reg[-1, -1] = 0.0
                 theta = torch.linalg.solve(xb.T @ xb + reg, xb.T @ y)
-                w[dl, kind, h, :, : x.shape[1]] = theta[:-1].T
-                b[dl, kind, h] = theta[-1]
-    metadata = MapperMetadata(target_layers, draft_layers, kv_heads, head_dim, selection, lambda_)
-    return RidgeKVMapper(metadata, w, b)
-
-
-def fit_ridge_mapper_from_cache_pairs(
-    pairs,
-    *,
-    target_layers: int,
-    draft_layers: int,
-    kv_heads: int,
-    head_dim: int,
-    layer_selection: Sequence[Sequence[int]] | None = None,
-    lambda_: float = 0.01,
-    stride: int = 4,
-) -> RidgeKVMapper:
-    """Fit from a one-pass iterable of ``(target_cache, native_draft_cache)``.
-
-    Only normal equations are retained, so a 128K-observation calibration does not
-    accumulate all activations in RAM.  This is the intended E0 path.
-    """
-    selection = [list(x) for x in (layer_selection or default_layer_selection(target_layers, draft_layers))]
-    max_in = max(len(x) for x in selection) * head_dim
-    stats: dict[tuple[int, int, str], list[torch.Tensor]] = {}
-    for dl in range(draft_layers):
-        for h in range(kv_heads):
-            for name in ("k", "v"):
-                stats[(dl, h, name)] = [
-                    torch.zeros(max_in + 1, max_in + 1, dtype=torch.float32),
-                    torch.zeros(max_in + 1, head_dim, dtype=torch.float32),
-                ]
-    count = 0
-    for target, native in pairs:
-        if target.seq_len != native.seq_len:
-            raise ValueError("target/native calibration caches must have equal sequence length")
-        idx = slice(0, target.seq_len, stride)
-        for dl, selected in enumerate(selection):
-            for h in range(kv_heads):
-                for kind, name in ((0, "k"), (1, "v")):
-                    source = [target.layers[i].key if kind == 0 else target.layers[i].value for i in selected]
-                    x = torch.cat([z[:, h, idx, :].reshape(-1, head_dim) for z in source], dim=1).float()
-                    y = (native.layers[dl].key if kind == 0 else native.layers[dl].value)[:, h, idx, :].reshape(-1, head_dim).float()
-                    xb = torch.cat((x, torch.ones(x.shape[0], 1, dtype=torch.float32)), dim=1)
-                    stats[(dl, h, name)][0].add_(xb.T @ xb)
-                    stats[(dl, h, name)][1].add_(xb.T @ y)
-        count += 1
-    if count == 0:
-        raise ValueError("calibration pair iterable was empty")
-    for key, (xtx, xty) in stats.items():
-        xtx, xty = xtx.double(), xty.double()
-        reg = torch.eye(max_in + 1, dtype=torch.float64) * lambda_
-        reg[-1, -1] = 0.0
-        theta = torch.linalg.solve(xtx + reg, xty)
-        dl, h, name = key
-        k = len(selection[dl])
-        # Store solved parameters temporarily in a second compact structure.
-        stats[key] = [theta, torch.tensor(0.0)]
-    weights = torch.zeros(draft_layers, 2, kv_heads, head_dim, max_in)
-    bias = torch.zeros(draft_layers, 2, kv_heads, head_dim)
-    for (dl, h, name), (theta, _) in stats.items():
-        kind = 0 if name == "k" else 1
-        k = len(selection[dl]) * head_dim
-        weights[dl, kind, h, :, :k] = theta[:-1].T.float()
-        bias[dl, kind, h] = theta[-1].float()
-    metadata = MapperMetadata(target_layers, draft_layers, kv_heads, head_dim, selection, lambda_)
+                weights[dl, kind, h, :, : x.shape[1]] = theta[:-1].T
+                bias[dl, kind, h] = theta[-1]
+    metadata = MapperMetadata(
+        target_layers,
+        draft_layers,
+        kv_heads,
+        kv_heads,
+        head_dim,
+        selection,
+        lambda_,
+        content_space,
+    )
     return RidgeKVMapper(metadata, weights, bias)
