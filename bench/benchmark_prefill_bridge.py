@@ -59,9 +59,18 @@ def main():
         help="live mapper precision; BF16 is the recommended 24GB serving setting",
     )
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--low-vram",
+        action="store_true",
+        help="16GB feasibility profile; reduces default lengths and permits model offload",
+    )
     ap.add_argument("--output", default="results/e1_prefill_bridge.json")
     args = ap.parse_args()
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    if args.low_vram and args.lengths == "512,1024,2048,4096,8192,16384":
+        args.lengths = "256,512,1024,2048,4096"
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
     map_dtype = {
         "bfloat16": torch.bfloat16,
         "float16": torch.float16,

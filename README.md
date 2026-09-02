@@ -76,6 +76,47 @@ pip install -e '.[hf,kvbridge,dev]'
 
 `kvbridge` is pinned to the audited research commit used by this project.
 
+### 16GB feasibility profile
+
+The physical batch is already `1`; lowering gradient accumulation alone does not
+reduce model-weight residency. For an RTX A4000/16GB feasibility run, add
+`--low-vram` to E0/E1/E2/training. This keeps exact BF16 weights, enables controlled
+CPU offload, uses training contexts `256,384,512`, sets gradient accumulation to 4,
+and shortens pilot generation to 128 tokens. It is intended to prove that the
+runtime works and to catch OOM/API bugs, not to claim the 24GB paper speed gate.
+
+```bash
+# training smoke/profile: physical batch=1, 500 optimizer updates, 2,000 microbatches
+python training/fit_acceptance_mapper.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
+  --output checkpoints/qwen3_4b_to_1p7b_block_16gb.pt \
+  --text-file data/fineweb_acceptance_disjoint.jsonl \
+  --low-vram --steps 500 --gamma 4 --grad-accum 4 \
+  --context-lengths 256,384,512 --device cuda --dtype bfloat16
+
+# E0 can keep the scientific 1024-token calibration and offload model weights.
+python bench/fit_ridge_calibration.py \
+  --target Qwen/Qwen3-4B --draft Qwen/Qwen3-1.7B \
+  --sequences 500 --seq-len 1024 --stride 4 --k 8 --lambda 0.01 \
+  --low-vram --accumulation-device cpu \
+  --calibration-dir artifacts/e0_qwen3_4b_to_1p7b_calibration_16gb \
+  --kvbridge-artifact artifacts/e0_qwen3_4b_to_1p7b_kvbridge_16gb \
+  --output checkpoints/qwen3_4b_to_1p7b_ridge_16gb.pt
+
+# E1/E2 feasibility smoke (not the paper gate):
+python bench/benchmark_prefill_bridge.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge_16gb.pt \
+  --lengths 256,512,1024,2048,4096 --warmup 2 --repetitions 10 --low-vram
+python bench/eval_acceptance_pilot.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge_16gb.pt \
+  --text-file data/heldout_prompts.jsonl --prompts 20 --low-vram
+```
+
+`--low-vram` does not change the scientific defaults; omit it on the intended 24GB
+machine. If the A4000 still OOMs while loading both models, the remaining safe
+fallback is `--device auto` with CPU offload, but its wall-clock numbers must not be
+used for G0/G4.
+
 ## E0 - fit the target-to-draft ridge mapper
 
 Default scientific configuration:

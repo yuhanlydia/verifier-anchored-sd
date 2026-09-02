@@ -2,6 +2,16 @@ target: Qwen/Qwen3-4B
 draft: Qwen/Qwen3-1.7B
 device: cuda
 dtype: bfloat16
+profiles:
+  low_vram_16gb:
+    physical_batch_size: 1
+    training_context_lengths: [256, 384, 512]
+    training_gradient_accumulation: 4
+    pilot_lengths: [256, 512, 1024, 2048, 4096]
+    pilot_prompt_tokens: 256
+    pilot_generated_tokens: 128
+    model_offload: auto_with_13gib_gpu_cap
+    paper_comparable: false
 
 mapper:
   backend: kvbridge@0d75f31dcde6eeceaa609d3affed6ca1401deb77

@@ -68,9 +68,17 @@ def main():
         "--merge-output", help="optional final checkpoint with W0+gUV^T merged"
     )
     ap.add_argument("--initialize-only", action="store_true")
+    ap.add_argument(
+        "--low-vram",
+        action="store_true",
+        help="16GB profile: physical batch remains 1, context=256/384/512, grad-accum=4",
+    )
     args = ap.parse_args()
     if args.steps > args.max_steps:
         raise ValueError("--steps may not exceed --max-steps")
+    if args.low_vram:
+        args.context_lengths = "256,384,512"
+        args.grad_accum = 4
 
     mapper = RidgeKVMapper.load(args.mapper, map_location=args.device)
     if mapper.u is None:
@@ -85,7 +93,7 @@ def main():
 
     torch.manual_seed(args.seed)
     tokenizer, target, draft = load_hf_pair(
-        args.target, args.draft, args.device, args.dtype
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
     )
     for model in (target, draft):
         model.eval()

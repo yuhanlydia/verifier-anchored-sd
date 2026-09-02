@@ -22,7 +22,14 @@ def _tokenizer_contract(tokenizer) -> dict:
     }
 
 
-def load_hf_pair(target_id: str, draft_id: str, device: str, dtype: str = "bfloat16"):
+def load_hf_pair(
+    target_id: str,
+    draft_id: str,
+    device: str,
+    dtype: str = "bfloat16",
+    *,
+    low_vram: bool = False,
+):
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
     except ImportError as exc:
@@ -39,11 +46,23 @@ def load_hf_pair(target_id: str, draft_id: str, device: str, dtype: str = "bfloa
             "target and draft tokenizer contracts differ; cross-model cache positions/token IDs are unsafe"
         )
     device_map = {"": device} if device not in {"auto", "balanced", "balanced_low_0"} else device
+    load_kwargs = {"torch_dtype": torch_dtype, "trust_remote_code": True, "low_cpu_mem_usage": True}
+    if low_vram and torch.cuda.is_available() and device != "cpu":
+        # Keep exact BF16 weights; offload only reduces residency. This profile is
+        # for smoke/feasibility runs, not for paper wall-clock gates.
+        device_map = "auto"
+        load_kwargs.update(
+            max_memory={0: "13GiB", "cpu": "48GiB"},
+            offload_state_dict=True,
+            offload_folder=".cache/vakv_offload_target",
+        )
     target = AutoModelForCausalLM.from_pretrained(
-        target_id, torch_dtype=torch_dtype, device_map=device_map, trust_remote_code=True
+        target_id, device_map=device_map, **load_kwargs
     ).eval()
+    if low_vram and torch.cuda.is_available() and device != "cpu":
+        load_kwargs["offload_folder"] = ".cache/vakv_offload_draft"
     draft = AutoModelForCausalLM.from_pretrained(
-        draft_id, torch_dtype=torch_dtype, device_map=device_map, trust_remote_code=True
+        draft_id, device_map=device_map, **load_kwargs
     ).eval()
     if target.get_input_embeddings().num_embeddings < len(tokenizer):
         raise ValueError("target embedding table does not cover the shared tokenizer")

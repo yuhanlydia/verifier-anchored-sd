@@ -134,6 +134,27 @@ Start with context lengths 512/1024/2048. On a 24GB card, if memory is too high,
 reduce context length before changing the model pair or gamma, and record the
 change.
 
+### 16GB A4000 feasibility profile
+
+The trainer's physical batch is already 1. `grad_accum` changes the number of
+microbatches per optimizer update, but it does not materially lower the peak model
+memory. To run a feasibility pass on a 16GB card, use `--low-vram`; it enforces
+physical batch 1, context lengths 256/384/512, gradient accumulation 4, and
+controlled CPU offload while keeping BF16 weights and `gamma=4`:
+
+```bash
+python training/fit_acceptance_mapper.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
+  --output checkpoints/qwen3_4b_to_1p7b_block_16gb.pt \
+  --text-file data/fineweb_acceptance_disjoint.jsonl \
+  --low-vram --steps 500 --grad-accum 4 \
+  --context-lengths 256,384,512 --device cuda --dtype bfloat16
+```
+
+This profile is for OOM/API feasibility only. Do not compare its latency against
+the 24GB paper gate. Re-run E1/E2 without `--low-vram` on the target 24GB machine
+for scientific numbers.
+
 ## Command
 
 ```bash

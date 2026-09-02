@@ -76,6 +76,11 @@ def main():
     )
     ap.add_argument("--output", default="checkpoints/qwen3_4b_to_1p7b_ridge.pt")
     ap.add_argument("--overwrite-artifact", action="store_true")
+    ap.add_argument(
+        "--low-vram",
+        action="store_true",
+        help="16GB feasibility profile; keeps seq-len 1024 but enables controlled model offload",
+    )
     args = ap.parse_args()
     if args.sequences <= 0 or args.seq_len <= 0 or args.stride <= 0:
         raise ValueError("sequences, seq-len, and stride must be positive")
@@ -90,7 +95,9 @@ def main():
         save_calibration_shard,
     ) = _require_kvbridge()
 
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
     target_revision = _model_revision(target, args.target_revision)
     draft_revision = _model_revision(draft, args.draft_revision)
     source_signature = model_signature(

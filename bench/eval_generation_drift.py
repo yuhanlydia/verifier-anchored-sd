@@ -29,8 +29,13 @@ def main():
     ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
     ap.add_argument("--mapper-dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
     ap.add_argument("--output", default="results/generation_drift.json")
+    ap.add_argument("--low-vram", action="store_true", help="16GB feasibility profile")
     args = ap.parse_args()
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    if args.low_vram and args.new_tokens == 512:
+        args.new_tokens = 128
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
     map_dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}[args.mapper_dtype]
     mapper = RidgeKVMapper.load(args.mapper, map_location=args.device).to(args.device, dtype=map_dtype)
     texts = list(iter_texts(args.text_file, limit=args.prompts * 2))

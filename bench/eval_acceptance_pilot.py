@@ -35,9 +35,21 @@ def main():
         choices=["bfloat16", "float16", "float32"],
     )
     ap.add_argument("--output", default="results/e2_acceptance_pilot.json")
+    ap.add_argument(
+        "--low-vram",
+        action="store_true",
+        help="16GB feasibility profile: prompt=256 and generation=128 unless explicitly overridden",
+    )
     args = ap.parse_args()
+    if args.low_vram:
+        if args.prompt_tokens == 512:
+            args.prompt_tokens = 256
+        if args.new_tokens == 512:
+            args.new_tokens = 128
 
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
     map_dtype = {
         "bfloat16": torch.bfloat16,
         "float16": torch.float16,
