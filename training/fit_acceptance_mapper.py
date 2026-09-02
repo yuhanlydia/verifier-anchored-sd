@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Train the phase-2 low-rank mapper against the block-acceptance surrogate.
+"""Train a low-rank residual on top of the audited ridge KV mapper.
 
-``--steps`` means optimizer updates. With gradient accumulation ``a`` the script
-consumes exactly ``steps * a`` microbatches. Target and draft weights are frozen;
-only the mapper residual and scalar gate receive gradients.
-
-A subtle but important autograd rule: target forwards use ``torch.no_grad()`` with
-``forward_incremental(..., inference=False)``. This creates ordinary tensors that
-carry no target gradient but are still legal inputs to the trainable mapper.
-``torch.inference_mode()`` tensors must not enter the mapper's backward graph.
+``--steps`` always means optimizer updates. Target and draft LLM weights remain
+frozen. Target forwards use ordinary ``torch.no_grad`` tensors (not inference-mode
+tensors) because the mapper must save source KV for gradients with respect to its
+residual parameters.
 """
 
 from __future__ import annotations
@@ -25,9 +21,15 @@ import torch
 from common import iter_texts, load_hf_pair
 from torch.nn.utils import clip_grad_norm_
 
-from verifier_anchored_sd.spec_decode.hf_runtime import capture_rotary_factors, forward_incremental
+from verifier_anchored_sd.spec_decode.hf_runtime import (
+    capture_rotary_factors,
+    forward_incremental,
+)
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
-from verifier_anchored_sd.training.block_acceptance_loss import block_acceptance_loss
+from verifier_anchored_sd.training.block_acceptance_loss import (
+    block_acceptance_loss,
+    one_step_acceptance_loss,
+)
 from verifier_anchored_sd.training.schedule import optimizer_microbatch_schedule
 
 
@@ -41,7 +43,12 @@ def main():
         "--text-file",
         help="disjoint JSONL/raw text prefixes; defaults to streaming FineWeb-Edu",
     )
-    ap.add_argument("--steps", type=int, default=500, help="optimizer updates, not microbatches")
+    ap.add_argument(
+        "--objective", choices=["block", "one_step_tv"], default="block"
+    )
+    ap.add_argument(
+        "--steps", type=int, default=500, help="optimizer updates, not microbatches"
+    )
     ap.add_argument("--max-steps", type=int, default=1000)
     ap.add_argument("--context-lengths", default="512,1024,2048")
     ap.add_argument("--gamma", type=int, default=4)
@@ -57,7 +64,9 @@ def main():
     )
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--save-every", type=int, default=100)
-    ap.add_argument("--merge-output", help="optional final checkpoint with W0+gUV^T merged")
+    ap.add_argument(
+        "--merge-output", help="optional final checkpoint with W0+gUV^T merged"
+    )
     ap.add_argument("--initialize-only", action="store_true")
     args = ap.parse_args()
     if args.steps > args.max_steps:
@@ -75,7 +84,9 @@ def main():
         return
 
     torch.manual_seed(args.seed)
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype
+    )
     for model in (target, draft):
         model.eval()
         for parameter in model.parameters():
@@ -100,38 +111,29 @@ def main():
                 raise RuntimeError(
                     "not enough training text; provide a larger disjoint --text-file"
                 ) from exc
-            encoded = tokenizer(text, add_special_tokens=False, return_tensors="pt")[
-                "input_ids"
-            ][0]
+            encoded = tokenizer(
+                text, add_special_tokens=False, return_tensors="pt"
+            )["input_ids"][0]
             token_buffer = torch.cat((token_buffer, encoded))
         result, token_buffer = token_buffer[:length], token_buffer[length:]
         return result
 
-    def probs(logits):
+    def probs(logits: torch.Tensor) -> torch.Tensor:
         return torch.softmax(logits[:, -1, :].float(), dim=-1)
 
     def train_one(ids: torch.Tensor):
         ids = ids.unsqueeze(0).to(device)
-
-        # Important: ordinary no-grad tensors, not inference tensors, feed the
-        # trainable mapper. The target remains entirely outside the backward graph.
         with torch.no_grad():
             target_full = forward_incremental(target, ids, inference=False)
             target_next = probs(target_full.logits)
 
         positions = torch.arange(ids.shape[1], device=device).unsqueeze(0)
-        captured_rotary = capture_rotary_factors(draft, positions)
-        # capture_rotary_factors is inference-only for serving. Clone outside that
-        # context so factors can be saved by autograd when rotating trainable keys.
-        draft_rotary = type(captured_rotary)(
-            captured_rotary.cos.detach().clone(),
-            captured_rotary.sin.detach().clone(),
-            captured_rotary.interleaved,
-        )
-
+        draft_rotary = capture_rotary_factors(draft, positions)
         with torch.no_grad():
             baseline_cache = mapper.map(
-                target_full.cache, draft_rotary=draft_rotary, include_residual=False
+                target_full.cache,
+                draft_rotary=draft_rotary,
+                include_residual=False,
             )
         mapped_cache = mapper.map(target_full.cache, draft_rotary=draft_rotary)
 
@@ -162,38 +164,65 @@ def main():
             p_rows = [target_next[0]]
             if args.gamma > 1:
                 p_rows.extend(
-                    torch.softmax(target_step.logits[0, :-1].float(), dim=-1)
+                    torch.softmax(
+                        target_step.logits[0, :-1].float(), dim=-1
+                    )
                 )
             p = torch.stack(p_rows).unsqueeze(0)
         q_tensor = torch.stack(q_rows).unsqueeze(0)
-        block_loss, metrics = block_acceptance_loss(p, q_tensor)
+
+        block_loss, block_metrics = block_acceptance_loss(p, q_tensor)
+        if args.objective == "block":
+            objective_loss = block_loss
+        else:
+            objective_loss, _ = one_step_acceptance_loss(p, q_tensor)
 
         delta = torch.zeros((), device=device, dtype=torch.float32)
         denom = torch.zeros((), device=device, dtype=torch.float32)
-        for current, base in zip(mapped_cache.layers, baseline_cache.layers, strict=True):
+        for current, base in zip(
+            mapped_cache.layers, baseline_cache.layers, strict=True
+        ):
             delta = delta + (current.key.float() - base.key.float()).pow(2).sum()
             delta = delta + (current.value.float() - base.value.float()).pow(2).sum()
-            denom = denom + base.key.float().pow(2).sum() + base.value.float().pow(2).sum()
+            denom = (
+                denom
+                + base.key.float().pow(2).sum()
+                + base.value.float().pow(2).sum()
+            )
         reg = delta / (denom + 1e-6)
-        return block_loss + args.lambda_reg * reg, metrics["expected_length"].mean(), reg.detach()
+        loss = objective_loss + args.lambda_reg * reg
+        return (
+            loss,
+            block_metrics["expected_length"].mean(),
+            block_metrics["alpha"][:, 0].mean(),
+            reg.detach(),
+        )
 
     history = []
     optimizer.zero_grad(set_to_none=True)
     micro_index = 0
     current_step = 0
-    sums = {"loss": 0.0, "expected_length": 0.0, "regularizer": 0.0}
+    sums = {
+        "loss": 0.0,
+        "expected_length": 0.0,
+        "first_acceptance": 0.0,
+        "regularizer": 0.0,
+    }
     for optimizer_step, microbatch in optimizer_microbatch_schedule(
         args.steps, args.grad_accum
     ):
         if optimizer_step != current_step:
             current_step = optimizer_step
-            sums = {"loss": 0.0, "expected_length": 0.0, "regularizer": 0.0}
+            sums = {key: 0.0 for key in sums}
         length = lengths[micro_index % len(lengths)]
         micro_index += 1
-        loss, expected_length, reg = train_one(next_prefix(length))
+        loss, expected_length, first_acceptance, reg = train_one(
+            next_prefix(length)
+        )
         (loss / args.grad_accum).backward()
         sums["loss"] += float(loss.detach())
         sums["expected_length"] += float(expected_length)
+        sums["first_acceptance"] += float(first_acceptance)
         sums["regularizer"] += float(reg)
 
         if microbatch != args.grad_accum:
@@ -204,9 +233,7 @@ def main():
         row = {
             "optimizer_step": optimizer_step,
             "microbatches_seen": micro_index,
-            "loss": sums["loss"] / args.grad_accum,
-            "expected_length": sums["expected_length"] / args.grad_accum,
-            "regularizer": sums["regularizer"] / args.grad_accum,
+            **{key: value / args.grad_accum for key, value in sums.items()},
         }
         history.append(row)
         if optimizer_step == 1 or optimizer_step % 10 == 0:
@@ -231,7 +258,7 @@ def main():
         print(f"saved merged inference mapper to {args.merge_output}")
     print(
         f"trained {args.steps} optimizer steps ({micro_index} microbatches) "
-        f"and saved {args.output}"
+        f"with objective={args.objective} and saved {args.output}"
     )
 
 
