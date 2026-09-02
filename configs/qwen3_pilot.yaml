@@ -1,0 +1,25 @@
+target: Qwen/Qwen3-4B
+draft: Qwen/Qwen3-1.7B
+device: cuda
+dtype: bfloat16
+mapper:
+  calibration_dataset: FineWeb-Edu
+  sequences: 500
+  sequence_length: 1024
+  observation_stride: 4
+  ridge_lambda: 0.01
+  source_layers_per_draft_layer: 8
+pilot:
+  prompts: 200
+  gamma: 4
+  generated_tokens: 512
+  context_lengths: [512, 1024, 2048, 4096, 8192, 16384]
+  warmup: 20
+  repetitions: 100
+training:
+  residual_rank: 8
+  learning_rate: 0.0002
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+  steps: 500
+

@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""E2: 200-prompt pilot for Native SD, Ridge Init-only, and Ridge Refresh."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from common import iter_texts, load_hf_pair
+
+from verifier_anchored_sd.spec_decode.hf_runtime import QwenPairRuntime
+from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mapper", required=True)
+    ap.add_argument("--target", default="Qwen/Qwen3-4B")
+    ap.add_argument("--draft", default="Qwen/Qwen3-1.7B")
+    ap.add_argument("--text-file", required=True)
+    ap.add_argument("--prompts", type=int, default=200)
+    ap.add_argument("--prompt-tokens", type=int, default=512)
+    ap.add_argument("--new-tokens", type=int, default=512)
+    ap.add_argument("--gamma", type=int, default=4)
+    ap.add_argument("--device", default="cuda")
+    ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
+    ap.add_argument("--output", default="results/e2_acceptance_pilot.json")
+    args = ap.parse_args()
+    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    mapper = RidgeKVMapper.load(args.mapper, map_location=args.device)
+    texts = list(iter_texts(args.text_file, limit=args.prompts * 2))
+    rows = []
+    methods = {
+        "native_sd": {"init_mode": "native", "refresh": False},
+        "ridge_init_only": {"init_mode": "mapped", "refresh": False},
+        "ridge_refresh": {"init_mode": "mapped", "refresh": True},
+    }
+    for method, options in methods.items():
+        for idx, text in enumerate(texts[:args.prompts]):
+            ids = tokenizer(text, add_special_tokens=True, return_tensors="pt")["input_ids"][0][:args.prompt_tokens]
+            if ids.numel() < 2:
+                continue
+            runtime = QwenPairRuntime(target, draft, mapper, seed=idx, init_mode=options["init_mode"], refresh=options["refresh"])
+            runtime.generate(ids.tolist(), args.new_tokens, args.gamma)
+            lengths = runtime.accepted_lengths
+            rows.append({"method": method, "prompt": idx, "mean_accepted_length": sum(lengths) / max(len(lengths), 1),
+                         "acceptance_rate": sum(lengths) / max(len(lengths) * args.gamma, 1), "blocks": len(lengths)})
+            if (idx + 1) % 10 == 0:
+                print(method, idx + 1)
+    summary = {}
+    for method in methods:
+        subset = [x for x in rows if x["method"] == method]
+        summary[method] = {k: sum(x[k] for x in subset) / max(len(subset), 1) for k in ("mean_accepted_length", "acceptance_rate")}
+    result = {"config": vars(args), "summary": summary, "rows": rows}
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.output).write_text(json.dumps(result, indent=2))
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+

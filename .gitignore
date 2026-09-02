@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+results/
+checkpoints/
+data/
+wandb/
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.log
+
