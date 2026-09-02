@@ -67,6 +67,55 @@ Outputs are JSON/JSONL under `results/`, which is intentionally git-ignored. E1
 reports median, P95, mapper-only time, end-to-end bridge time, native total time,
 speedup, and peak allocated VRAM. E2 reports MAL and acceptance rate per method.
 
+## Complete Phase-2 training plan
+
+The acceptance mapper is trained only after E0, E1, and E2 pass their gates. The
+complete operational plan is in [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md).
+The implementation is [`training/fit_acceptance_mapper.py`](training/fit_acceptance_mapper.py).
+
+The short version is:
+
+1. Keep the ridge mapper `W0` and both LLMs frozen; add only a rank-8 `W0 + gUV^T`
+   residual for K and V, with `g=0` at initialization.
+2. Use 2,000 FineWeb-Edu prefixes disjoint from E0 calibration and benchmark
+   prompts, sampling context lengths 512/1024/2048 and draft blocks of `gamma=4`.
+3. Run the target under `no_grad`, sample on-policy draft tokens with
+   `stop_gradient`, and backpropagate only through the frozen draft forward and
+   the mapper residual.
+4. Optimize `-mean(sum_j prod_{i<=j}(1-TV(p_i,q_i))/gamma)` plus the normalized
+   cache residual penalty with weight `1e-3`, AdamW, LR `2e-4`, weight decay `1e-4`,
+   gradient clipping `1.0`, batch 1, accumulation 16, BF16, 500 steps first.
+5. Save every 100 steps, select by held-out MAL (not training loss), merge
+   `W*=W0+gUV^T`, and rerun E2 plus the E1 wall-clock test. Do not claim a gain from
+   the adapter until it beats both Ridge Refresh and one-step-TV on disjoint data.
+
+To initialize without training:
+
+```bash
+python training/fit_acceptance_mapper.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
+  --output checkpoints/qwen3_4b_to_1p7b_block_init.pt \
+  --initialize-only
+```
+
+To train the residual after the gates pass:
+
+```bash
+python training/fit_acceptance_mapper.py \
+  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
+  --output checkpoints/qwen3_4b_to_1p7b_block_step500.pt \
+  --text-file data/fineweb_acceptance_disjoint.jsonl \
+  --steps 500 --max-steps 1000 --gamma 4 \
+  --context-lengths 512,1024,2048 --rank 8 \
+  --lr 2e-4 --weight-decay 1e-4 --grad-clip 1.0 \
+  --grad-accum 16 --lambda-reg 1e-3 --save-every 100 \
+  --merge-output checkpoints/qwen3_4b_to_1p7b_block_merged.pt
+```
+
+The command performs actual training; the checkpoint is not a new LLM. The main
+checkpoint contains the mapper residual plus optimizer/history sidecars, while
+`--merge-output` writes the inference-time `W* = W0 + gUV^T` checkpoint.
+
 ## Correctness contract
 
 The target distribution is never altered. For each proposal position, the exact
@@ -93,21 +142,22 @@ acceptance loss. They do not download models.
 
 ## Handoff / go-no-go
 
-Do not train the residual yet. First inspect E1 and E2:
+Do not train the residual until E1 and E2 pass. First inspect:
 
 - G0: bridge total is below native total at 4K/8K, ideally ≥1.5×.
 - G1: Ridge mapped MAL does not catastrophically collapse.
 - G2: Refresh is flatter/better than Init-only over 512 generated tokens.
 
 If G0 or G2 fails, stop and record the failure rather than spending GPU time on the
-block objective. If they pass, initialize the rank-8 zero-gated adapter:
+block objective. If they pass, follow the complete training plan above. The
+zero-gated adapter can be initialized with:
 
 ```bash
 python training/fit_acceptance_mapper.py \
   --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --output checkpoints/qwen3_4b_to_1p7b_block_init.pt
+  --output checkpoints/qwen3_4b_to_1p7b_block_init.pt \
+  --initialize-only
 ```
 
 `training/block_acceptance_loss.py` implements the intended surrogate
 `-mean(sum_j prod_{i<=j}(1-TV(p_i,q_i))/gamma)` for that later phase.
-

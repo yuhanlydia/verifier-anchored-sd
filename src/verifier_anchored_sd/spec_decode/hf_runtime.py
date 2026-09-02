@@ -9,6 +9,7 @@ DynamicCache object on every mapper call.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 
 import torch
@@ -41,7 +42,9 @@ class Forward:
     cache: CacheState
 
 
-def forward_incremental(model, input_ids: torch.Tensor, cache: CacheState | None = None) -> Forward:
+def forward_incremental(
+    model, input_ids: torch.Tensor, cache: CacheState | None = None, *, inference: bool = True
+) -> Forward:
     """Run a real incremental forward and return only the new-token KV."""
     if input_ids.ndim != 2:
         raise ValueError("input_ids must have shape [batch, sequence]")
@@ -51,7 +54,8 @@ def forward_incremental(model, input_ids: torch.Tensor, cache: CacheState | None
     attention_mask = torch.ones(
         (input_ids.shape[0], past_len + input_ids.shape[1]), device=device, dtype=torch.long
     )
-    with torch.inference_mode():
+    context = torch.inference_mode() if inference else nullcontext()
+    with context:
         kwargs = {
             "input_ids": input_ids,
             "past_key_values": None if cache is None else cache.as_tuple(),
@@ -197,7 +201,17 @@ class QwenPairRuntime:
             if accepted != len(proposal.token_ids):
                 raise ValueError("correction is required after a partial block")
             self.target_next_probs = proposal.next_target_probs
-            self.draft_next_probs = proposal.next_draft_probs
+            if self.refresh:
+                # The proposal logits were computed with draft-native temporary
+                # K/V. Accepted K/V have just been replaced by mapped verifier K/V,
+                # so recompute the boundary distribution under the committed cache.
+                last_token = proposal.token_ids[-1]
+                ids = torch.tensor([[last_token]], device=self.anchored.draft_cache.layers[0].key.device)
+                prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
+                refreshed = forward_incremental(self.draft, ids, prefix)
+                self.draft_next_probs = self._probs(refreshed.logits, self.temperature)
+            else:
+                self.draft_next_probs = proposal.next_draft_probs
             return
         ids = torch.tensor([[correction]], device=self.target_cache.layers[0].key.device)
         native = forward_incremental(self.draft, ids, self.anchored.draft_cache).cache
