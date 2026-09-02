@@ -1,10 +1,10 @@
 """Target-to-draft KV mapping plus mergeable low-rank acceptance residuals.
 
-The serving mapper is intentionally small in API surface.  Production E0 fitting is
-delegated to the paper-faithful KVBridge backend, then imported here so the
-speculative-decoding runtime and phase-2 residual trainer share one checkpoint type.
-The important layout is cross-head: every draft head may read *all* verifier KV
-heads from every selected verifier layer.
+Production E0 fitting is delegated to the paper-faithful KVBridge backend and then
+imported here so the speculative runtime and phase-2 trainer share one checkpoint
+format. Every draft head can read all verifier KV heads from every selected source
+layer. Live storage may be BF16 on a 24GB GPU, but the affine projection itself uses
+FP32 accumulation to match the reference mapper numerics.
 """
 
 from __future__ import annotations
@@ -33,7 +33,8 @@ class MapperMetadata:
     @classmethod
     def from_dict(cls, value: Mapping) -> MapperMetadata:
         data = dict(value)
-        # Backward compatibility for the pre-audit toy checkpoints.
+        # Backward compatibility is metadata-only. Scientifically invalid old
+        # multi-head checkpoint tensors still fail the width validation below.
         if "target_kv_heads" not in data and "kv_heads" in data:
             data["target_kv_heads"] = data["kv_heads"]
             data["draft_kv_heads"] = data["kv_heads"]
@@ -47,11 +48,13 @@ class RidgeKVMapper:
 
     ``weights`` is ``[draft_layers, 2, draft_heads, head_dim, max_input_dim]``.
     For a draft layer whose selected verifier layers are ``S``, the active input
-    width is ``len(S) * target_kv_heads * head_dim``.  Feature order is layer-major,
-    then source-head-major, then head dimension.
+    width is ``len(S) * target_kv_heads * head_dim``. Feature order is layer-major,
+    source-head-major, then head dimension.
     """
 
-    def __init__(self, metadata: MapperMetadata, weights: torch.Tensor, bias: torch.Tensor) -> None:
+    def __init__(
+        self, metadata: MapperMetadata, weights: torch.Tensor, bias: torch.Tensor
+    ) -> None:
         expected_prefix = (
             metadata.draft_layers,
             2,
@@ -62,9 +65,15 @@ class RidgeKVMapper:
             raise ValueError(f"unexpected mapper weight shape {weights.shape}")
         if tuple(bias.shape) != expected_prefix:
             raise ValueError(f"unexpected mapper bias shape {bias.shape}")
-        required = max(len(x) for x in metadata.layer_selection) * metadata.target_kv_heads * metadata.head_dim
+        required = (
+            max(len(x) for x in metadata.layer_selection)
+            * metadata.target_kv_heads
+            * metadata.head_dim
+        )
         if weights.shape[-1] < required:
-            raise ValueError("mapper weight input width is smaller than selected cross-head features")
+            raise ValueError(
+                "mapper weight input width is smaller than selected cross-head features"
+            )
         self.metadata = metadata
         self.weights = weights
         self.bias = bias
@@ -80,7 +89,12 @@ class RidgeKVMapper:
     def in_dim(self) -> int:
         return self.weights.shape[-1]
 
-    def to(self, device: str | torch.device, *, dtype: torch.dtype | None = None) -> RidgeKVMapper:
+    def to(
+        self,
+        device: str | torch.device,
+        *,
+        dtype: torch.dtype | None = None,
+    ) -> RidgeKVMapper:
         self.weights = self.weights.to(device=device, dtype=dtype)
         self.bias = self.bias.to(device=device, dtype=dtype)
         if self.u is not None:
@@ -93,7 +107,9 @@ class RidgeKVMapper:
             self.gate = self.gate.to(device=device, dtype=dtype)
         return self
 
-    def _features(self, cache: CacheState, selected: Sequence[int], kind: int) -> torch.Tensor:
+    def _features(
+        self, cache: CacheState, selected: Sequence[int], kind: int
+    ) -> torch.Tensor:
         rows = []
         for layer in selected:
             tensor = cache.layers[layer].key if kind == 0 else cache.layers[layer].value
@@ -109,16 +125,24 @@ class RidgeKVMapper:
         *,
         include_residual: bool,
     ) -> torch.Tensor:
+        # KVBridge stores BF16 artifacts if desired, but deliberately accumulates
+        # the regression projection in FP32. Keep that scientific baseline here.
         output_dtype = x.dtype
         active = x.shape[-1]
-        compute = x.to(self.weights.dtype)
-        w = self.weights[layer, kind, :, :, :active]
+        compute = x.float()
+        w = self.weights[layer, kind, :, :, :active].to(
+            device=x.device, dtype=torch.float32
+        )
+        b = self.bias[layer, kind].to(device=x.device, dtype=torch.float32)
         y = torch.einsum("btf,hdf->bhtd", compute, w)
-        y = y + self.bias[layer, kind].view(1, self.metadata.draft_kv_heads, 1, -1)
+        y = y + b.view(1, self.metadata.draft_kv_heads, 1, -1)
         if include_residual and self.u is not None and self.v is not None:
-            u = self.u[layer, kind]
-            v = self.v[layer, kind, :, :, :active]
-            y = y + self.gate.to(y.dtype) * torch.einsum("btf,hrf,hdr->bhtd", compute, v, u)
+            u = self.u[layer, kind].to(device=x.device, dtype=torch.float32)
+            v = self.v[layer, kind, :, :, :active].to(
+                device=x.device, dtype=torch.float32
+            )
+            residual = torch.einsum("btf,hrf,hdr->bhtd", compute, v, u)
+            y = y + self.gate.float() * residual
         return y.to(output_dtype)
 
     def map(
@@ -130,7 +154,10 @@ class RidgeKVMapper:
     ) -> CacheState:
         if target.num_layers != self.metadata.target_layers:
             raise ValueError("verifier cache layer count does not match mapper")
-        if target.kv_heads != self.metadata.target_kv_heads or target.head_dim != self.metadata.head_dim:
+        if (
+            target.kv_heads != self.metadata.target_kv_heads
+            or target.head_dim != self.metadata.head_dim
+        ):
             raise ValueError("verifier KV geometry does not match mapper")
         source = target.to_content_space() if self.metadata.content_space else target
         result = []
@@ -155,13 +182,28 @@ class RidgeKVMapper:
             raise ValueError("rank must be positive")
         shape = (self.metadata.draft_layers, 2, self.metadata.draft_kv_heads)
         self.u = nn.Parameter(
-            torch.randn(*shape, self.metadata.head_dim, rank, device=self.device, dtype=self.weights.dtype)
+            torch.randn(
+                *shape,
+                self.metadata.head_dim,
+                rank,
+                device=self.device,
+                dtype=self.weights.dtype,
+            )
             * 1e-3
         )
         self.v = nn.Parameter(
-            torch.randn(*shape, rank, self.in_dim, device=self.device, dtype=self.weights.dtype) * 1e-3
+            torch.randn(
+                *shape,
+                rank,
+                self.in_dim,
+                device=self.device,
+                dtype=self.weights.dtype,
+            )
+            * 1e-3
         )
-        self.gate = nn.Parameter(torch.tensor(0.0, device=self.device, dtype=self.weights.dtype))
+        self.gate = nn.Parameter(
+            torch.tensor(0.0, device=self.device, dtype=self.weights.dtype)
+        )
 
     def merge_residual(self) -> RidgeKVMapper:
         if self.u is None or self.v is None:
@@ -206,8 +248,12 @@ class RidgeKVMapper:
         torch.save(self.state_dict(), path)
 
     @classmethod
-    def load(cls, path: str | Path, map_location: str | torch.device = "cpu") -> RidgeKVMapper:
-        return cls.from_state_dict(torch.load(path, map_location=map_location, weights_only=False))
+    def load(
+        cls, path: str | Path, map_location: str | torch.device = "cpu"
+    ) -> RidgeKVMapper:
+        return cls.from_state_dict(
+            torch.load(path, map_location=map_location, weights_only=False)
+        )
 
     @classmethod
     def from_kvbridge_artifact(
@@ -216,11 +262,13 @@ class RidgeKVMapper:
         *,
         dtype: torch.dtype = torch.float32,
     ) -> RidgeKVMapper:
-        """Import a paper-faithful KVBridge artifact into the trainable runtime format."""
+        """Import a paper-faithful KVBridge artifact into the runtime format."""
         try:
             from kvbridge.mapper import CrossModelKVMapper
         except ImportError as exc:  # pragma: no cover - optional GPU/E0 environment
-            raise RuntimeError("install the kvbridge extra before importing an E0 artifact") from exc
+            raise RuntimeError(
+                "install the kvbridge extra before importing an E0 artifact"
+            ) from exc
         external = CrossModelKVMapper.load(directory)
         source = external.source_signature
         draft = external.target_signature
@@ -235,11 +283,17 @@ class RidgeKVMapper:
             max_in,
             dtype=dtype,
         )
-        bias = torch.zeros(draft.num_layers, 2, draft.num_kv_heads, draft.head_dim, dtype=dtype)
+        bias = torch.zeros(
+            draft.num_layers, 2, draft.num_kv_heads, draft.head_dim, dtype=dtype
+        )
         for layer in range(draft.num_layers):
             width = external.key_weights[layer].shape[1]
-            weights[layer, 0, :, :, :width] = external.key_weights[layer].permute(0, 2, 1).to(dtype)
-            weights[layer, 1, :, :, :width] = external.value_weights[layer].permute(0, 2, 1).to(dtype)
+            weights[layer, 0, :, :, :width] = external.key_weights[layer].permute(
+                0, 2, 1
+            ).to(dtype)
+            weights[layer, 1, :, :, :width] = external.value_weights[layer].permute(
+                0, 2, 1
+            ).to(dtype)
             bias[layer, 0] = external.key_biases[layer].to(dtype)
             bias[layer, 1] = external.value_biases[layer].to(dtype)
         metadata = MapperMetadata(
@@ -285,12 +339,21 @@ def fit_ridge_mapper(
             for kind, name in enumerate(("k", "v")):
                 x, y = observations[(dl, h, name)]
                 x, y = x.float(), y.float()
-                if x.ndim != 2 or y.ndim != 2 or x.shape[0] != y.shape[0] or y.shape[1] != head_dim:
+                if (
+                    x.ndim != 2
+                    or y.ndim != 2
+                    or x.shape[0] != y.shape[0]
+                    or y.shape[1] != head_dim
+                ):
                     raise ValueError(f"invalid observation shape for {(dl, h, name)}")
                 if x.shape[1] != expected_in:
-                    raise ValueError(f"expected {expected_in} cross-head input features, got {x.shape[1]}")
+                    raise ValueError(
+                        f"expected {expected_in} cross-head input features, got {x.shape[1]}"
+                    )
                 if x.shape[0] <= x.shape[1]:
-                    raise ValueError("ridge fit is underdetermined: observations must exceed feature dimension")
+                    raise ValueError(
+                        "ridge fit is underdetermined: observations must exceed feature dimension"
+                    )
                 xb = torch.cat((x, torch.ones(x.shape[0], 1)), dim=1)
                 reg = torch.eye(xb.shape[1], dtype=xb.dtype) * lambda_
                 reg[-1, -1] = 0.0
