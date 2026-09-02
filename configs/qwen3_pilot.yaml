@@ -2,22 +2,44 @@ target: Qwen/Qwen3-4B
 draft: Qwen/Qwen3-1.7B
 device: cuda
 dtype: bfloat16
+
 mapper:
+  backend: kvbridge@0d75f31dcde6eeceaa609d3affed6ca1401deb77
   calibration_dataset: FineWeb-Edu
   sequences: 500
   sequence_length: 1024
   observation_stride: 4
+  observations_approx: 128000
   ridge_lambda: 0.01
   source_layers_per_draft_layer: 8
+  all_source_kv_heads: true
+  content_space_keys: true
+  require_matched_kv: true
+  runtime_dtype: bfloat16
+
+runtime:
+  dynamic_cache: true
+  exact_rejection_sampling: true
+  canonical_target_bonus: true
+  max_pending_frontiers: 1
+  verifier_refresh: true
+
 pilot:
   prompts: 200
   gamma: 4
+  prompt_tokens: 512
   generated_tokens: 512
   context_lengths: [512, 1024, 2048, 4096, 8192, 16384]
   warmup: 20
   repetitions: 100
+  gates:
+    preferred_bridge_speedup_4k_8k: 1.5
+    require_no_catastrophic_mal_collapse: true
+    require_refresh_better_or_flatter_than_init_only: true
+
 training:
-  dataset: FineWeb-Edu-disjoint-from-calibration
+  enabled_only_after_e0_e2_gates: true
+  dataset: FineWeb-Edu-disjoint-from-calibration-and-eval
   prefixes: 2000
   context_lengths: [512, 1024, 2048]
   gamma: 4
@@ -27,10 +49,11 @@ training:
   learning_rate: 0.0002
   weight_decay: 0.0001
   gradient_clip: 1.0
-  steps: 500
-  max_steps: 1000
+  optimizer_steps: 500
+  max_optimizer_steps: 1000
+  microbatches_at_500_steps: 8000
   precision: bfloat16
   lambda_reg: 0.001
   optimizer: AdamW
   gate_initialization: 0.0
-  save_every: 100
+  save_every_optimizer_steps: 100
