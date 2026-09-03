@@ -7,6 +7,7 @@ set -euo pipefail
 # OOM as the capacity boundary rather than aborting completed measurements.
 
 : "${HF_HUB_CACHE:?Set HF_HUB_CACHE to a path with sufficient free disk space}"
+: "${EVAL_TEXT:?Set EVAL_TEXT to a held-out JSONL/raw-text file disjoint from E0 calibration}"
 
 MAPPER="checkpoints/qwen3_4b_to_1p7b_matched_16gb.pt"
 CALIB="artifacts/e0_qwen3_4b_to_1p7b_matched_16gb_calibration"
@@ -31,11 +32,12 @@ python bench/benchmark_prefill_bridge.py \
 # a 16GB machine than the previous one-prompt smoke.  This is the first G1/G2 gate.
 python bench/eval_acceptance_pilot.py \
   --mapper "$MAPPER" --memory-profile 16gb --low-vram \
+  --text-file "$EVAL_TEXT" \
   --bootstrap-samples 5000 --mapper-dtype bfloat16 \
   --output results/e2_matched_16gb.json
 
 # Only run long-generation drift after the 64-prompt E2 gate shows refresh > init.
 # Example:
 # python bench/eval_generation_drift.py --mapper "$MAPPER" \
-#   --prompts 16 --new-tokens 256 --gamma 4 --low-vram \
+#   --text-file "$EVAL_TEXT" --prompts 16 --new-tokens 256 --gamma 4 --low-vram \
 #   --output results/e2_drift_matched_16gb.json
