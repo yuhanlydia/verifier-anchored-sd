@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""E2 / KT-B: Native SD vs Ridge Init-only vs Ridge + Verifier Refresh."""
+"""E2 / KT-B: Native SD vs Ridge Init-only vs Ridge + Verifier Refresh.
+
+Besides realized MAL, E2 reports the deterministic conditional acceptance-mass
+surrogate for each speculative block and paired-bootstrap confidence intervals.
+This is especially important on a 16GB pilot, where many short independent prompts
+are statistically more useful than one extremely long stochastic generation.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +17,24 @@ from pathlib import Path
 import torch
 from common import iter_texts, load_hf_pair
 
+from verifier_anchored_sd.evaluation import paired_bootstrap_mean_difference
+from verifier_anchored_sd.resource_profiles import e2_profile
 from verifier_anchored_sd.spec_decode.hf_runtime import QwenPairRuntime
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
+
+
+def _paired(rows, a: str, b: str, metric: str, *, samples: int, seed: int):
+    a_rows = {row["prompt"]: row for row in rows if row["method"] == a}
+    b_rows = {row["prompt"]: row for row in rows if row["method"] == b}
+    prompts = sorted(set(a_rows) & set(b_rows))
+    result = paired_bootstrap_mean_difference(
+        [a_rows[p][metric] for p in prompts],
+        [b_rows[p][metric] for p in prompts],
+        samples=samples,
+        seed=seed,
+    )
+    result.update({"method_a": a, "method_b": b, "metric": metric})
+    return result
 
 
 def main():
@@ -28,6 +50,12 @@ def main():
     ap.add_argument("--prompt-tokens", type=int, default=512)
     ap.add_argument("--new-tokens", type=int, default=512)
     ap.add_argument("--gamma", type=int, default=4)
+    ap.add_argument(
+        "--memory-profile",
+        choices=["manual", "16gb", "24gb"],
+        default="manual",
+    )
+    ap.add_argument("--bootstrap-samples", type=int, default=5000)
     ap.add_argument("--device", default="cuda")
     ap.add_argument(
         "--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"]
@@ -41,10 +69,23 @@ def main():
     ap.add_argument(
         "--low-vram",
         action="store_true",
-        help="16GB feasibility profile: prompt=256 and generation=128 unless explicitly overridden",
+        help="controlled model offload; use only if resident 16GB inference cannot load",
     )
     args = ap.parse_args()
-    if args.low_vram:
+
+    if args.memory_profile != "manual":
+        profile = e2_profile(args.memory_profile)
+        # Profile values replace only untouched defaults so explicit CLI overrides win.
+        if args.prompts == 200:
+            args.prompts = profile.prompts
+        if args.prompt_tokens == 512:
+            args.prompt_tokens = profile.prompt_tokens
+        if args.new_tokens == 512:
+            args.new_tokens = profile.new_tokens
+        if args.gamma == 4:
+            args.gamma = profile.gamma
+    elif args.low_vram:
+        # Backward-compatible tiny smoke behavior.
         if args.prompt_tokens == 512:
             args.prompt_tokens = 256
         if args.new_tokens == 512:
@@ -96,6 +137,7 @@ def main():
                 torch.cuda.synchronize(cuda_device)
             elapsed = time.perf_counter() - start
             lengths = runtime.accepted_lengths
+            expected = runtime.expected_accepted_lengths
             bonus_count = sum(kind == "bonus" for kind in runtime.frontier_kinds)
             rows.append(
                 {
@@ -103,6 +145,7 @@ def main():
                     "prompt": idx,
                     "prompt_tokens": int(ids.numel()),
                     "mean_accepted_length": sum(lengths) / max(len(lengths), 1),
+                    "expected_accepted_length": sum(expected) / max(len(expected), 1),
                     "acceptance_rate": sum(lengths) / max(len(lengths) * args.gamma, 1),
                     "blocks": len(lengths),
                     "bonus_rate": bonus_count / max(len(lengths), 1),
@@ -121,6 +164,7 @@ def main():
     summary = {}
     metrics = (
         "mean_accepted_length",
+        "expected_accepted_length",
         "acceptance_rate",
         "bonus_rate",
         "elapsed_s",
@@ -136,10 +180,53 @@ def main():
             (x["peak_vram_bytes"] or 0 for x in subset), default=0
         )
 
-    result = {"config": vars(args), "summary": summary, "rows": rows}
+    paired = {
+        "refresh_minus_init_expected_mal": _paired(
+            rows,
+            "ridge_refresh",
+            "ridge_init_only",
+            "expected_accepted_length",
+            samples=args.bootstrap_samples,
+            seed=0,
+        ),
+        "refresh_minus_init_realized_mal": _paired(
+            rows,
+            "ridge_refresh",
+            "ridge_init_only",
+            "mean_accepted_length",
+            samples=args.bootstrap_samples,
+            seed=1,
+        ),
+        "refresh_minus_native_throughput": _paired(
+            rows,
+            "ridge_refresh",
+            "native_sd",
+            "output_tokens_per_s",
+            samples=args.bootstrap_samples,
+            seed=2,
+        ),
+    }
+    native_expected = summary["native_sd"]["expected_accepted_length"]
+    init_expected = summary["ridge_init_only"]["expected_accepted_length"]
+    retention = init_expected / max(native_expected, 1e-12)
+    refresh_ci = paired["refresh_minus_init_expected_mal"]
+    gates = {
+        "G1_mapped_acceptance_retention_ge_0p80": retention >= 0.80,
+        "G1_expected_mal_retention": retention,
+        "G2_refresh_expected_mal_ci_positive": refresh_ci["ci_low"] > 0.0,
+        "G2_refresh_expected_mal_delta": refresh_ci["mean_difference"],
+    }
+
+    result = {
+        "config": vars(args),
+        "summary": summary,
+        "paired_bootstrap": paired,
+        "gates": gates,
+        "rows": rows,
+    }
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(result, indent=2))
-    print(json.dumps(summary, indent=2))
+    print(json.dumps({"summary": summary, "gates": gates}, indent=2))
 
 
 if __name__ == "__main__":
