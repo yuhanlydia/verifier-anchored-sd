@@ -16,6 +16,7 @@ from pathlib import Path
 import torch
 from common import load_hf_pair
 
+from verifier_anchored_sd.device_utils import timing_device_for_models
 from verifier_anchored_sd.resource_profiles import e1_batch_sizes
 from verifier_anchored_sd.spec_decode.hf_runtime import capture_rotary_factors, forward_incremental
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
@@ -109,7 +110,9 @@ def main():
     mapper = RidgeKVMapper.load(args.mapper, map_location=args.device).to(
         args.device, dtype=map_dtype
     )
-    device = next(target.parameters()).device
+    # Under Accelerate offload, the first parameter can live on CPU while the
+    # forward still launches CUDA kernels.  Synchronize the actual CUDA shard.
+    device = timing_device_for_models(target, draft)
     target_device = target.get_input_embeddings().weight.device
     draft_device = draft.get_input_embeddings().weight.device
     lengths = [int(x) for x in args.lengths.split(",")]
@@ -215,6 +218,7 @@ def main():
 
     result = {
         "config": {**vars(args), "resolved_batch_sizes": batch_sizes},
+        "timing_device": str(device),
         "rows": rows,
         "interpretation": {
             "latency_rows": "batch_size=1",
