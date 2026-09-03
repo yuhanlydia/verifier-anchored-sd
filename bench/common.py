@@ -52,7 +52,11 @@ def load_hf_pair(
         # for smoke/feasibility runs, not for paper wall-clock gates.
         device_map = "auto"
         load_kwargs.update(
-            max_memory={0: "13GiB", "cpu": "48GiB"},
+            # Leave headroom for long-context KV, the translated cache, and
+            # temporary FP32 mapper features.  The 9 GiB cap is intentionally
+            # conservative for a 16 GiB card; this is a feasibility profile,
+            # not a throughput configuration.
+            max_memory={0: "9GiB", "cpu": "48GiB"},
             offload_state_dict=True,
             offload_folder=".cache/vakv_offload_target",
         )

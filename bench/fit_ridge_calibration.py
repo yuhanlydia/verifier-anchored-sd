@@ -46,6 +46,25 @@ def _model_revision(model, fallback: str) -> str:
     return str(getattr(model.config, "_commit_hash", None) or fallback)
 
 
+def _depth_selection(source_layers: int, target_layers: int, top_k: int) -> list[list[int]]:
+    """Return deterministic layer-neighbour selections for a fast smoke run.
+
+    The paper-faithful default is KVBridge's calibration-R² selection.  This
+    fallback exists only because R² selection launches thousands of small CPU
+    regressions and is impractical on the 16GB feasibility machine.
+    """
+    if source_layers <= 0 or target_layers <= 0 or top_k <= 0:
+        raise ValueError("layer counts and top_k must be positive")
+    width = min(top_k, source_layers)
+    result = []
+    for target_layer in range(target_layers):
+        center = round(target_layer * (source_layers - 1) / max(target_layers - 1, 1))
+        start = center - (width - 1) // 2
+        start = max(0, min(start, source_layers - width))
+        result.append(list(range(start, start + width)))
+    return result
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", default="Qwen/Qwen3-4B")
@@ -69,6 +88,12 @@ def main():
     ap.add_argument("--selection-layer-block", type=int, default=4)
     ap.add_argument("--fit-layer-block", type=int, default=1)
     ap.add_argument(
+        "--layer-selection",
+        choices=["r2", "depth"],
+        default="r2",
+        help="source-layer selection; depth is a non-paper fast smoke mode",
+    )
+    ap.add_argument(
         "--calibration-dir", default="artifacts/e0_qwen3_4b_to_1p7b_calibration"
     )
     ap.add_argument(
@@ -84,6 +109,8 @@ def main():
     args = ap.parse_args()
     if args.sequences <= 0 or args.seq_len <= 0 or args.stride <= 0:
         raise ValueError("sequences, seq-len, and stride must be positive")
+    if args.layer_selection == "depth" and not args.low_vram:
+        raise ValueError("--layer-selection depth is restricted to the explicit --low-vram smoke profile")
 
     (
         FitConfig,
@@ -184,7 +211,29 @@ def main():
         selection_target_layer_block_size=args.selection_layer_block,
         token_stride=1,  # shards were already sampled before persistence
     )
-    external = fit_mapper(exact_factory, source_signature, draft_signature, config)
+    if args.layer_selection == "depth":
+        # KVBridge exposes the production R² selector through fit_mapper but no
+        # public selector injection point.  Temporarily replace that internal
+        # selector only for this explicitly labelled feasibility run.
+        import kvbridge.fit as kvbridge_fit
+
+        original_selector = kvbridge_fit._select_layers
+
+        def smoke_selector(*_args, **_kwargs):
+            selected = _depth_selection(
+                source_signature.num_layers,
+                draft_signature.num_layers,
+                args.k,
+            )
+            return selected, [[] for _ in selected]
+
+        kvbridge_fit._select_layers = smoke_selector
+        try:
+            external = fit_mapper(exact_factory, source_signature, draft_signature, config)
+        finally:
+            kvbridge_fit._select_layers = original_selector
+    else:
+        external = fit_mapper(exact_factory, source_signature, draft_signature, config)
     artifact = Path(args.kvbridge_artifact)
     external.save(
         artifact, overwrite=args.overwrite_artifact, storage_dtype="bfloat16"
@@ -204,6 +253,7 @@ def main():
         "backend": "kvbridge@0d75f31dcde6eeceaa609d3affed6ca1401deb77",
         "content_space": True,
         "cross_head": True,
+        "layer_selection": args.layer_selection,
     }
     Path(args.output + ".json").write_text(json.dumps(metadata, indent=2))
     print(f"saved paper-faithful runtime mapper: {args.output}")
