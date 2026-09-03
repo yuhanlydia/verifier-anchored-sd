@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import torch
 
+from ..evaluation import expected_accepted_length
 from .cache_state import CacheState, LayerKV, RotaryFactors
 from .target_to_draft_mapper import RidgeKVMapper
 from .verifier_cache_refresh import VerifierAnchoredCache
@@ -177,6 +178,7 @@ class QwenPairRuntime:
         self.target_next_probs: torch.Tensor | None = None
         self.draft_next_probs: torch.Tensor | None = None
         self.accepted_lengths: list[int] = []
+        self.expected_accepted_lengths: list[float] = []
         self.block_emitted_lengths: list[int] = []
         self.frontier_kinds: list[str] = []
 
@@ -191,6 +193,7 @@ class QwenPairRuntime:
 
     def initialize(self, prompt_ids: Sequence[int]) -> None:
         self.accepted_lengths = []
+        self.expected_accepted_lengths = []
         self.block_emitted_lengths = []
         self.frontier_kinds = []
         ids = torch.tensor([list(prompt_ids)], device=next(self.target.parameters()).device)
@@ -208,8 +211,6 @@ class QwenPairRuntime:
 
         draft_rotary = self._draft_rotary(0, ids.shape[1])
         self.anchored = VerifierAnchoredCache(self.target_cache, self.mapper, draft_rotary)
-        # Only the final prompt token is replayed to obtain the first draft logits;
-        # its newly produced K/V is discarded, so persistent state remains mapped.
         draft_prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
         query_ids = ids[:, -1:].to(next(self.draft.parameters()).device)
         query = forward_incremental(self.draft, query_ids, draft_prefix)
@@ -234,7 +235,6 @@ class QwenPairRuntime:
         else:
             self.anchored.pending = None
         self.target_next_probs = self._probs(target_step.logits, self.temperature)
-        # Re-query the boundary distribution after refresh; this new draft KV is discarded.
         prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
         draft_ids = ids.to(next(self.draft.parameters()).device)
         draft_step = forward_incremental(self.draft, draft_ids, prefix)
@@ -292,8 +292,6 @@ class QwenPairRuntime:
             else:
                 self.anchored.draft_cache.append(proposal.draft_kv.slice(0, accepted))
         if frontier is None:
-            # Kept for low-level tests; the production generate loop always emits a
-            # correction or canonical target bonus frontier.
             if accepted != len(proposal.token_ids):
                 raise ValueError("frontier is required after a partial block")
             self.target_next_probs = proposal.next_target_probs
@@ -310,6 +308,9 @@ class QwenPairRuntime:
         output: list[int] = []
         while len(output) < max_new_tokens:
             proposal = self.propose(gamma)
+            self.expected_accepted_lengths.append(
+                float(expected_accepted_length(proposal.target_probs, proposal.draft_probs))
+            )
             from .exact_sd import choose_frontier_token, exact_spec_accept
 
             result = exact_spec_accept(
