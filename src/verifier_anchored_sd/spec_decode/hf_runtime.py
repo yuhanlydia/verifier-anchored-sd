@@ -1,9 +1,10 @@
-"""Optional Hugging Face runtime for the Qwen3 4B/1.7B pilot.
+"""Incremental Hugging Face runtime for the Qwen3 4B/1.7B pilot.
 
-This module is imported lazily by benchmark scripts, so the core package and its
-tests do not require Transformers.  It uses legacy tuple caches at the adapter
-boundary; this is supported by current Transformers and avoids rebuilding a
-DynamicCache object on every mapper call.
+The verifier cache is always native and exact. Cross-model mapping is used only to
+initialize or refresh the draft cache. Keys are translated in RoPE-free content
+space, then rotated with the draft model's own factors. The adapter uses
+``DynamicCache`` when available so Transformers 5.x does not depend on legacy tuple
+cache support.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from dataclasses import dataclass
 
 import torch
 
-from .cache_state import CacheState, LayerKV
+from ..evaluation import expected_accepted_length
+from .cache_state import CacheState, LayerKV, RotaryFactors
 from .target_to_draft_mapper import RidgeKVMapper
 from .verifier_cache_refresh import VerifierAnchoredCache
 
@@ -28,12 +30,66 @@ def _concat_steps(steps: list[CacheState]) -> CacheState:
     return result
 
 
-def cache_state_from_hf(past) -> CacheState:
+def _legacy_layers(past) -> list[tuple[torch.Tensor, torch.Tensor]]:
+    if hasattr(past, "to_legacy_cache"):
+        past = past.to_legacy_cache()
+    if isinstance(past, (tuple, list)):
+        return [(layer[0], layer[1]) for layer in past]
     if hasattr(past, "key_cache") and hasattr(past, "value_cache"):
-        pairs = zip(past.key_cache, past.value_cache)
-    else:
-        pairs = past
-    return CacheState(LayerKV(k, v) for k, v in pairs)
+        return list(zip(past.key_cache, past.value_cache))
+    if hasattr(past, "layers"):
+        return [(layer.keys, layer.values) for layer in past.layers]
+    raise RuntimeError("unsupported Transformers cache representation")
+
+
+def _to_hf_cache(cache: CacheState, model):
+    """Build a fresh DynamicCache so a forward cannot mutate our CacheState."""
+    try:
+        from transformers import DynamicCache
+    except ImportError:  # pragma: no cover - only old optional HF environments
+        return cache.as_tuple()
+    try:
+        dynamic = DynamicCache(config=model.config)
+    except TypeError:
+        dynamic = DynamicCache()
+    for layer, kv in enumerate(cache.layers):
+        dynamic.update(kv.key, kv.value, layer)
+    return dynamic
+
+
+def cache_state_from_hf(past) -> CacheState:
+    return CacheState(LayerKV(k, v) for k, v in _legacy_layers(past))
+
+
+def _rotary_module(model):
+    candidates = [
+        getattr(getattr(model, "model", None), "rotary_emb", None),
+        getattr(getattr(getattr(model, "model", None), "model", None), "rotary_emb", None),
+        getattr(getattr(model, "language_model", None), "rotary_emb", None),
+        getattr(
+            getattr(getattr(model, "model", None), "language_model", None),
+            "rotary_emb",
+            None,
+        ),
+        getattr(model, "rotary_emb", None),
+    ]
+    for candidate in candidates:
+        if candidate is not None:
+            return candidate
+    raise RuntimeError("model does not expose a supported model-level rotary embedding")
+
+
+@torch.no_grad()
+def capture_rotary_factors(model, position_ids: torch.Tensor) -> RotaryFactors:
+    """Capture exact model-produced RoPE factors as ordinary no-grad tensors."""
+    rotary = _rotary_module(model)
+    embeddings = model.get_input_embeddings().weight
+    positions = position_ids.to(embeddings.device)
+    dummy = torch.empty((*positions.shape, 1), device=embeddings.device, dtype=embeddings.dtype)
+    output = rotary(dummy, positions)
+    if not isinstance(output, tuple) or len(output) < 2:
+        raise RuntimeError("rotary module did not return (cos, sin)")
+    return RotaryFactors(output[0], output[1], interleaved=False)
 
 
 @dataclass
@@ -43,14 +99,21 @@ class Forward:
 
 
 def forward_incremental(
-    model, input_ids: torch.Tensor, cache: CacheState | None = None, *, inference: bool = True
+    model,
+    input_ids: torch.Tensor,
+    cache: CacheState | None = None,
+    *,
+    inference: bool = True,
+    capture_rotary: bool = True,
 ) -> Forward:
-    """Run a real incremental forward and return only the new-token KV."""
+    """Run a real incremental forward and return only newly materialized KV."""
     if input_ids.ndim != 2:
         raise ValueError("input_ids must have shape [batch, sequence]")
     past_len = 0 if cache is None else cache.seq_len
     device = input_ids.device
     positions = torch.arange(past_len, past_len + input_ids.shape[1], device=device).unsqueeze(0)
+    if input_ids.shape[0] != 1:
+        positions = positions.expand(input_ids.shape[0], -1)
     attention_mask = torch.ones(
         (input_ids.shape[0], past_len + input_ids.shape[1]), device=device, dtype=torch.long
     )
@@ -58,7 +121,7 @@ def forward_incremental(
     with context:
         kwargs = {
             "input_ids": input_ids,
-            "past_key_values": None if cache is None else cache.as_tuple(),
+            "past_key_values": None if cache is None else _to_hf_cache(cache, model),
             "attention_mask": attention_mask,
             "position_ids": positions,
             "use_cache": True,
@@ -70,9 +133,10 @@ def forward_incremental(
             if "cache_position" not in str(exc):
                 raise
             out = model(**kwargs)
-    full = cache_state_from_hf(out.past_key_values)
-    new = full.slice(past_len)
-    return Forward(out.logits, new)
+    layers = _legacy_layers(out.past_key_values)
+    new_layers = [LayerKV(k[..., past_len:, :], v[..., past_len:, :]) for k, v in layers]
+    rotary = capture_rotary_factors(model, positions) if capture_rotary else None
+    return Forward(out.logits, CacheState(new_layers, rotary=rotary))
 
 
 @dataclass
@@ -82,22 +146,29 @@ class ProposalBlock:
     target_probs: torch.Tensor
     target_kv: CacheState
     draft_kv: CacheState
+    draft_rotary: RotaryFactors
     next_target_probs: torch.Tensor
     next_draft_probs: torch.Tensor
 
 
 class QwenPairRuntime:
-    """Incremental Qwen pair runtime implementing initial bridge + refresh.
+    """Exact speculative decoding with initial bridge and verifier refresh."""
 
-    ``target_next_probs`` and ``draft_next_probs`` are the distributions before
-    the next proposed token.  Keeping them explicitly avoids the common off-by-one
-    error where verification logits are incorrectly aligned to proposal tokens.
-    """
-
-    def __init__(self, target, draft, mapper: RidgeKVMapper, *, temperature: float = 1.0, seed: int = 0,
-                 init_mode: str = "mapped", refresh: bool = True):
+    def __init__(
+        self,
+        target,
+        draft,
+        mapper: RidgeKVMapper,
+        *,
+        temperature: float = 1.0,
+        seed: int = 0,
+        init_mode: str = "mapped",
+        refresh: bool = True,
+    ):
         self.target, self.draft, self.mapper = target, draft, mapper
         self.temperature = temperature
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
         if init_mode not in {"mapped", "native"}:
             raise ValueError("init_mode must be mapped or native")
         self.init_mode, self.refresh = init_mode, refresh
@@ -106,35 +177,43 @@ class QwenPairRuntime:
         self.anchored: VerifierAnchoredCache | None = None
         self.target_next_probs: torch.Tensor | None = None
         self.draft_next_probs: torch.Tensor | None = None
-        self.prompt_last: int | None = None
         self.accepted_lengths: list[int] = []
+        self.expected_accepted_lengths: list[float] = []
         self.block_emitted_lengths: list[int] = []
+        self.frontier_kinds: list[str] = []
 
     @staticmethod
     def _probs(logits: torch.Tensor, temperature: float) -> torch.Tensor:
         return torch.softmax(logits[:, -1, :].float() / temperature, dim=-1)
 
+    def _draft_rotary(self, start: int, length: int) -> RotaryFactors:
+        device = next(self.draft.parameters()).device
+        positions = torch.arange(start, start + length, device=device).unsqueeze(0)
+        return capture_rotary_factors(self.draft, positions)
+
     def initialize(self, prompt_ids: Sequence[int]) -> None:
         self.accepted_lengths = []
+        self.expected_accepted_lengths = []
         self.block_emitted_lengths = []
+        self.frontier_kinds = []
         ids = torch.tensor([list(prompt_ids)], device=next(self.target.parameters()).device)
         if ids.shape[1] < 1:
             raise ValueError("prompt must contain at least one token")
         target_full = forward_incremental(self.target, ids)
-        # forward_incremental returns only new KV when cache is None: the full prompt.
         self.target_cache = target_full.cache
-        self.anchored = VerifierAnchoredCache(self.target_cache, self.mapper)
         self.target_next_probs = self._probs(target_full.logits, self.temperature)
-        self.prompt_last = int(ids[0, -1])
         if self.init_mode == "native":
-            native_full = forward_incremental(self.draft, ids)
-            self.anchored.draft_cache = native_full.cache
+            native_ids = ids.to(next(self.draft.parameters()).device)
+            native_full = forward_incremental(self.draft, native_ids)
+            self.anchored = VerifierAnchoredCache.from_native(native_full.cache, self.mapper)
             self.draft_next_probs = self._probs(native_full.logits, self.temperature)
             return
-        # Query the draft head at the prompt boundary while discarding the native
-        # K/V for the last prompt token. Persistent draft state remains mapped.
+
+        draft_rotary = self._draft_rotary(0, ids.shape[1])
+        self.anchored = VerifierAnchoredCache(self.target_cache, self.mapper, draft_rotary)
         draft_prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
-        query = forward_incremental(self.draft, ids[:, -1:], draft_prefix)
+        query_ids = ids[:, -1:].to(next(self.draft.parameters()).device)
+        query = forward_incremental(self.draft, query_ids, draft_prefix)
         self.draft_next_probs = self._probs(query.logits, self.temperature)
 
     def _sample(self, probs: torch.Tensor) -> int:
@@ -145,24 +224,30 @@ class QwenPairRuntime:
         if self.anchored.pending is None:
             return
         token = self.anchored.pending.token_id
+        position = self.target_cache.seq_len
         ids = torch.tensor([[token]], device=self.target_cache.layers[0].key.device)
         target_step = forward_incremental(self.target, ids, self.target_cache)
         self.target_cache.append(target_step.cache)
         if self.refresh:
-            self.anchored.materialize_pending(token, target_step.cache)
+            self.anchored.materialize_pending(
+                token, target_step.cache, self._draft_rotary(position, 1)
+            )
         else:
             self.anchored.pending = None
         self.target_next_probs = self._probs(target_step.logits, self.temperature)
-        # Re-query draft using the now-anchored correction KV; discard new KV.
         prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
-        draft_step = forward_incremental(self.draft, ids, prefix)
+        draft_ids = ids.to(next(self.draft.parameters()).device)
+        draft_step = forward_incremental(self.draft, draft_ids, prefix)
         self.draft_next_probs = self._probs(draft_step.logits, self.temperature)
 
     def propose(self, gamma: int) -> ProposalBlock:
+        if gamma <= 0:
+            raise ValueError("gamma must be positive")
         if self.target_cache is None or self.anchored is None:
             raise RuntimeError("call initialize first")
         self._materialize_pending()
         assert self.target_next_probs is not None and self.draft_next_probs is not None
+        start = self.target_cache.seq_len
         q_rows, tokens, temp = [], [], []
         draft_cache = self.anchored.draft_cache.clone()
         q = self.draft_next_probs
@@ -170,68 +255,77 @@ class QwenPairRuntime:
             q_rows.append(q[0])
             token = self._sample(q)
             tokens.append(token)
-            ids = torch.tensor([[token]], device=q.device)
+            ids = torch.tensor([[token]], device=next(self.draft.parameters()).device)
             step = forward_incremental(self.draft, ids, draft_cache)
             temp.append(step.cache)
             draft_cache.append(step.cache)
             q = self._probs(step.logits, self.temperature)
-        ids = torch.tensor([tokens], device=self.target_next_probs.device)
-        verify = forward_incremental(self.target, ids, self.target_cache)
-        # p(y_1) comes from the previous target boundary; p(y_i), i>1, is the
-        # logit after y_{i-1}. The final verify logit is retained for all-accepted
-        # next-round use by the caller.
+        verify_ids = torch.tensor([tokens], device=next(self.target.parameters()).device)
+        verify = forward_incremental(self.target, verify_ids, self.target_cache)
         p_rows = [self.target_next_probs[0]]
         if gamma > 1:
-            p_rows.extend(torch.softmax(verify.logits[0, :-1].float() / self.temperature, dim=-1))
+            p_rows.extend(
+                torch.softmax(verify.logits[0, :-1].float() / self.temperature, dim=-1)
+            )
         return ProposalBlock(
-            tokens, torch.stack(q_rows), torch.stack(p_rows), verify.cache,
-            _concat_steps(temp),
-            self._probs(verify.logits, self.temperature), q,
+            token_ids=tokens,
+            draft_probs=torch.stack(q_rows),
+            target_probs=torch.stack(p_rows),
+            target_kv=verify.cache,
+            draft_kv=_concat_steps(temp),
+            draft_rotary=self._draft_rotary(start, gamma),
+            next_target_probs=self._probs(verify.logits, self.temperature),
+            next_draft_probs=q,
         )
 
-    def commit(self, accepted: int, correction: int | None, proposal: ProposalBlock) -> None:
+    def commit(self, accepted: int, frontier: int | None, proposal: ProposalBlock) -> None:
         assert self.target_cache is not None and self.anchored is not None
-        accepted_target = proposal.target_kv.slice(0, accepted)
-        self.target_cache.append(accepted_target)
-        if self.refresh:
-            self.anchored.append_verified(accepted_target)
-        else:
-            self.anchored.draft_cache.append(proposal.draft_kv.slice(0, accepted))
-        if correction is None:
-            if accepted != len(proposal.token_ids):
-                raise ValueError("correction is required after a partial block")
-            self.target_next_probs = proposal.next_target_probs
+        if not 0 <= accepted <= len(proposal.token_ids):
+            raise ValueError("accepted length is outside proposal block")
+        if accepted:
+            accepted_target = proposal.target_kv.slice(0, accepted)
+            self.target_cache.append(accepted_target)
             if self.refresh:
-                # The proposal logits were computed with draft-native temporary
-                # K/V. Accepted K/V have just been replaced by mapped verifier K/V,
-                # so recompute the boundary distribution under the committed cache.
-                last_token = proposal.token_ids[-1]
-                ids = torch.tensor([[last_token]], device=self.anchored.draft_cache.layers[0].key.device)
-                prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
-                refreshed = forward_incremental(self.draft, ids, prefix)
-                self.draft_next_probs = self._probs(refreshed.logits, self.temperature)
+                self.anchored.append_verified(
+                    accepted_target, proposal.draft_rotary.slice(0, accepted)
+                )
             else:
-                self.draft_next_probs = proposal.next_draft_probs
+                self.anchored.draft_cache.append(proposal.draft_kv.slice(0, accepted))
+        if frontier is None:
+            if accepted != len(proposal.token_ids):
+                raise ValueError("frontier is required after a partial block")
+            self.target_next_probs = proposal.next_target_probs
+            self.draft_next_probs = proposal.next_draft_probs
             return
-        ids = torch.tensor([[correction]], device=self.target_cache.layers[0].key.device)
+        ids = torch.tensor([[frontier]], device=next(self.draft.parameters()).device)
         native = forward_incremental(self.draft, ids, self.anchored.draft_cache).cache
-        self.anchored.append_pending(correction, native)
+        self.anchored.append_pending(frontier, native)
 
     def generate(self, prompt_ids: Sequence[int], max_new_tokens: int, gamma: int = 4) -> list[int]:
+        if max_new_tokens <= 0:
+            raise ValueError("max_new_tokens must be positive")
         self.initialize(prompt_ids)
         output: list[int] = []
         while len(output) < max_new_tokens:
             proposal = self.propose(gamma)
-            from .exact_sd import exact_spec_accept
+            self.expected_accepted_lengths.append(
+                float(expected_accepted_length(proposal.target_probs, proposal.draft_probs))
+            )
+            from .exact_sd import choose_frontier_token, exact_spec_accept
 
             result = exact_spec_accept(
-                proposal.token_ids, proposal.draft_probs, proposal.target_probs,
+                proposal.token_ids,
+                proposal.draft_probs,
+                proposal.target_probs,
                 generator=self.generator,
             )
+            frontier, kind = choose_frontier_token(
+                result, proposal.next_target_probs, generator=self.generator
+            )
             self.accepted_lengths.append(result.accepted_length)
-            self.block_emitted_lengths.append(result.accepted_length + (1 if result.correction is not None else 0))
-            self.commit(result.accepted_length, result.correction, proposal)
+            self.block_emitted_lengths.append(result.accepted_length + 1)
+            self.frontier_kinds.append(kind)
+            self.commit(result.accepted_length, frontier, proposal)
             output.extend(result.accepted)
-            if result.correction is not None:
-                output.append(result.correction)
+            output.append(frontier)
         return output[:max_new_tokens]

@@ -6,10 +6,11 @@ __pycache__/
 results/
 checkpoints/
 data/
+artifacts/
 wandb/
+.cache/
 *.pt
 *.pth
 *.safetensors
 *.bin
 *.log
-

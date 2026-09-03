@@ -29,8 +29,11 @@ def main():
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--dtype", default="bfloat16")
     ap.add_argument("--output", default="results/speedbench.jsonl")
+    ap.add_argument("--low-vram", action="store_true", help="16GB feasibility profile")
     args = ap.parse_args()
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
     mapper = RidgeKVMapper.load(args.mapper, map_location=args.device)
     rows = []
     for line in Path(args.prompts_jsonl).read_text().splitlines():
@@ -51,4 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

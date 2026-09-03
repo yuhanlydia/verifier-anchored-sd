@@ -1,16 +1,41 @@
 #!/usr/bin/env python3
-"""E2: 200-prompt pilot for Native SD, Ridge Init-only, and Ridge Refresh."""
+"""E2 / KT-B: Native SD vs Ridge Init-only vs Ridge + Verifier Refresh.
+
+Besides realized MAL, E2 reports the deterministic conditional acceptance-mass
+surrogate for each speculative block and paired-bootstrap confidence intervals.
+This is especially important on a 16GB pilot, where many short independent prompts
+are statistically more useful than one extremely long stochastic generation.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
+import torch
 from common import iter_texts, load_hf_pair
 
+from verifier_anchored_sd.device_utils import timing_device_for_models
+from verifier_anchored_sd.evaluation import paired_bootstrap_mean_difference
+from verifier_anchored_sd.resource_profiles import e2_profile
 from verifier_anchored_sd.spec_decode.hf_runtime import QwenPairRuntime
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
+
+
+def _paired(rows, a: str, b: str, metric: str, *, samples: int, seed: int):
+    a_rows = {row["prompt"]: row for row in rows if row["method"] == a}
+    b_rows = {row["prompt"]: row for row in rows if row["method"] == b}
+    prompts = sorted(set(a_rows) & set(b_rows))
+    result = paired_bootstrap_mean_difference(
+        [a_rows[p][metric] for p in prompts],
+        [b_rows[p][metric] for p in prompts],
+        samples=samples,
+        seed=seed,
+    )
+    result.update({"method_a": a, "method_b": b, "metric": metric})
+    return result
 
 
 def main():
@@ -18,46 +43,191 @@ def main():
     ap.add_argument("--mapper", required=True)
     ap.add_argument("--target", default="Qwen/Qwen3-4B")
     ap.add_argument("--draft", default="Qwen/Qwen3-1.7B")
-    ap.add_argument("--text-file", required=True)
+    ap.add_argument(
+        "--text-file",
+        help="JSONL with a text field; if omitted, stream FineWeb-Edu for a smoke/pilot run",
+    )
     ap.add_argument("--prompts", type=int, default=200)
     ap.add_argument("--prompt-tokens", type=int, default=512)
     ap.add_argument("--new-tokens", type=int, default=512)
     ap.add_argument("--gamma", type=int, default=4)
+    ap.add_argument(
+        "--memory-profile",
+        choices=["manual", "16gb", "24gb"],
+        default="manual",
+    )
+    ap.add_argument("--bootstrap-samples", type=int, default=5000)
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
+    ap.add_argument(
+        "--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"]
+    )
+    ap.add_argument(
+        "--mapper-dtype",
+        default="bfloat16",
+        choices=["bfloat16", "float16", "float32"],
+    )
     ap.add_argument("--output", default="results/e2_acceptance_pilot.json")
+    ap.add_argument(
+        "--low-vram",
+        action="store_true",
+        help="controlled model offload; use only if resident 16GB inference cannot load",
+    )
     args = ap.parse_args()
-    tokenizer, target, draft = load_hf_pair(args.target, args.draft, args.device, args.dtype)
-    mapper = RidgeKVMapper.load(args.mapper, map_location=args.device)
+
+    if args.memory_profile != "manual":
+        profile = e2_profile(args.memory_profile)
+        if args.prompts == 200:
+            args.prompts = profile.prompts
+        if args.prompt_tokens == 512:
+            args.prompt_tokens = profile.prompt_tokens
+        if args.new_tokens == 512:
+            args.new_tokens = profile.new_tokens
+        if args.gamma == 4:
+            args.gamma = profile.gamma
+    elif args.low_vram:
+        if args.prompt_tokens == 512:
+            args.prompt_tokens = 256
+        if args.new_tokens == 512:
+            args.new_tokens = 128
+
+    tokenizer, target, draft = load_hf_pair(
+        args.target, args.draft, args.device, args.dtype, low_vram=args.low_vram
+    )
+    map_dtype = {
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+        "float32": torch.float32,
+    }[args.mapper_dtype]
+    mapper = RidgeKVMapper.load(args.mapper, map_location=args.device).to(
+        args.device, dtype=map_dtype
+    )
     texts = list(iter_texts(args.text_file, limit=args.prompts * 2))
+    if not texts:
+        raise RuntimeError("no usable prompt texts were found")
     rows = []
     methods = {
         "native_sd": {"init_mode": "native", "refresh": False},
         "ridge_init_only": {"init_mode": "mapped", "refresh": False},
         "ridge_refresh": {"init_mode": "mapped", "refresh": True},
     }
+    cuda_device = timing_device_for_models(target, draft)
+
     for method, options in methods.items():
-        for idx, text in enumerate(texts[:args.prompts]):
-            ids = tokenizer(text, add_special_tokens=True, return_tensors="pt")["input_ids"][0][:args.prompt_tokens]
+        for idx, text in enumerate(texts[: args.prompts]):
+            ids = tokenizer(text, add_special_tokens=True, return_tensors="pt")["input_ids"][0][
+                : args.prompt_tokens
+            ]
             if ids.numel() < 2:
                 continue
-            runtime = QwenPairRuntime(target, draft, mapper, seed=idx, init_mode=options["init_mode"], refresh=options["refresh"])
+            runtime = QwenPairRuntime(
+                target,
+                draft,
+                mapper,
+                seed=idx,
+                init_mode=options["init_mode"],
+                refresh=options["refresh"],
+            )
+            if cuda_device.type == "cuda":
+                torch.cuda.synchronize(cuda_device)
+                torch.cuda.reset_peak_memory_stats(cuda_device)
+            start = time.perf_counter()
             runtime.generate(ids.tolist(), args.new_tokens, args.gamma)
+            if cuda_device.type == "cuda":
+                torch.cuda.synchronize(cuda_device)
+            elapsed = time.perf_counter() - start
             lengths = runtime.accepted_lengths
-            rows.append({"method": method, "prompt": idx, "mean_accepted_length": sum(lengths) / max(len(lengths), 1),
-                         "acceptance_rate": sum(lengths) / max(len(lengths) * args.gamma, 1), "blocks": len(lengths)})
+            expected = runtime.expected_accepted_lengths
+            bonus_count = sum(kind == "bonus" for kind in runtime.frontier_kinds)
+            rows.append(
+                {
+                    "method": method,
+                    "prompt": idx,
+                    "prompt_tokens": int(ids.numel()),
+                    "mean_accepted_length": sum(lengths) / max(len(lengths), 1),
+                    "expected_accepted_length": sum(expected) / max(len(expected), 1),
+                    "acceptance_rate": sum(lengths) / max(len(lengths) * args.gamma, 1),
+                    "blocks": len(lengths),
+                    "bonus_rate": bonus_count / max(len(lengths), 1),
+                    "elapsed_s": elapsed,
+                    "output_tokens_per_s": args.new_tokens / elapsed,
+                    "peak_vram_bytes": (
+                        torch.cuda.max_memory_allocated(cuda_device)
+                        if cuda_device.type == "cuda"
+                        else None
+                    ),
+                }
+            )
             if (idx + 1) % 10 == 0:
                 print(method, idx + 1)
+
     summary = {}
+    metrics = (
+        "mean_accepted_length",
+        "expected_accepted_length",
+        "acceptance_rate",
+        "bonus_rate",
+        "elapsed_s",
+        "output_tokens_per_s",
+    )
     for method in methods:
         subset = [x for x in rows if x["method"] == method]
-        summary[method] = {k: sum(x[k] for x in subset) / max(len(subset), 1) for k in ("mean_accepted_length", "acceptance_rate")}
-    result = {"config": vars(args), "summary": summary, "rows": rows}
+        summary[method] = {
+            key: sum(x[key] for x in subset) / max(len(subset), 1) for key in metrics
+        }
+        summary[method]["prompts_evaluated"] = len(subset)
+        summary[method]["peak_vram_bytes"] = max(
+            (x["peak_vram_bytes"] or 0 for x in subset), default=0
+        )
+
+    paired = {
+        "refresh_minus_init_expected_mal": _paired(
+            rows,
+            "ridge_refresh",
+            "ridge_init_only",
+            "expected_accepted_length",
+            samples=args.bootstrap_samples,
+            seed=0,
+        ),
+        "refresh_minus_init_realized_mal": _paired(
+            rows,
+            "ridge_refresh",
+            "ridge_init_only",
+            "mean_accepted_length",
+            samples=args.bootstrap_samples,
+            seed=1,
+        ),
+        "refresh_minus_native_throughput": _paired(
+            rows,
+            "ridge_refresh",
+            "native_sd",
+            "output_tokens_per_s",
+            samples=args.bootstrap_samples,
+            seed=2,
+        ),
+    }
+    native_expected = summary["native_sd"]["expected_accepted_length"]
+    init_expected = summary["ridge_init_only"]["expected_accepted_length"]
+    retention = init_expected / max(native_expected, 1e-12)
+    refresh_ci = paired["refresh_minus_init_expected_mal"]
+    gates = {
+        "G1_mapped_acceptance_retention_ge_0p80": retention >= 0.80,
+        "G1_expected_mal_retention": retention,
+        "G2_refresh_expected_mal_ci_positive": refresh_ci["ci_low"] > 0.0,
+        "G2_refresh_expected_mal_delta": refresh_ci["mean_difference"],
+    }
+
+    result = {
+        "config": vars(args),
+        "timing_device": str(cuda_device),
+        "summary": summary,
+        "paired_bootstrap": paired,
+        "gates": gates,
+        "rows": rows,
+    }
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(result, indent=2))
-    print(json.dumps(summary, indent=2))
+    print(json.dumps({"summary": summary, "gates": gates}, indent=2))
 
 
 if __name__ == "__main__":
     main()
-

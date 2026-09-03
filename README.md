@@ -1,163 +1,351 @@
 # Verifier-Anchored Speculative Decoding
 
-Experimental implementation of **Verifier-Anchored Draft Cache Refresh** for the
-Qwen3-4B → Qwen3-1.7B matched-KV pair.
+Research implementation for **Verifier-Anchored Draft Cache Refresh** with the
+matched-KV Qwen3 pair:
 
-The first milestone is deliberately limited to the three kill tests:
+```text
+verifier / target: Qwen/Qwen3-4B
+draft:             Qwen/Qwen3-1.7B
+```
 
-1. **E0** — fit a per-layer/head affine target→draft ridge mapper.
-2. **E1 / KT-A** — measure target prefill + mapping against target prefill + native draft prefill.
-3. **E2 / KT-B** — compare Native SD, Ridge Init-only, and Ridge + Verifier Refresh on 200 prompts.
+The repository is organized around falsifiable kill tests.  Do **not** train the
+acceptance residual until E0-E2 establish that translation is useful and continual
+verifier refresh is a real phenomenon.
 
-The block-acceptance residual is only initialized by the provided phase-2 command;
-it is not trained until E0–E2 pass.
+## Core idea
 
-## What is implemented
+The target distribution is never approximated.  The target keeps native KV and
+performs exact speculative verification.  Cross-model translation affects only the
+draft proposal cache.
 
-`src/verifier_anchored_sd/spec_decode/` contains the model-agnostic cache state,
-closed-form ridge mapper, exact rejection sampler, and refresh state machine.
-`spec_decode/hf_runtime.py` is the optional incremental Transformers adapter used by
-the pilot scripts. It keeps target and draft caches separate, commits only the
-accepted target prefix, and permits at most one unmaterialized correction frontier.
+At initialization:
 
-The runtime uses Qwen3's matched KV-head/head-dimension regime. Both models must
-expose the same number of KV heads and head dimension. The calibration and runtime
-currently assume compatible Qwen3 rotary geometry; a pair with different rotary
-scaling must add explicit inverse/forward RoPE transforms before using the mapper.
+```text
+prompt -> target prefill -> exact target KV -> target-to-draft mapper -> draft KV
+```
+
+During generation, the target has already computed exact K/V for accepted proposal
+tokens.  Instead of permanently retaining the draft-generated K/V for those tokens,
+**Ridge Refresh** discards it and maps the verifier's exact new K/V into the
+persistent draft cache.  A rejection correction, or the canonical target bonus
+token after a fully accepted block, is the only one-token draft-native pending
+frontier; on the next target forward that slot is replaced in place.
+
+The scientific question is therefore not whether cross-model KV transfer is
+possible.  It is:
+
+> Once target-to-draft KV translation is accurate and cheap, does repeatedly
+> anchoring persistent draft history to newly materialized verifier state improve
+> speculative acceptance / long-generation stability enough to justify refresh?
+
+## Important baseline update: CacheBridge
+
+CacheBridge (arXiv:2609.00891, Sep 2026) shows that architecture-indexed matched-head
+cross-model KV mapping can sharply reduce mapper size, construction cost, and
+application latency.  **Matched-head mapping is not a novelty claim of this repo.**
+
+We now expose two translator supports:
+
+```text
+--head-mode full
+    Original Full-Head support: every draft KV head reads all verifier KV heads
+    from each selected verifier layer.
+
+--head-mode matched
+    Head-local centered ridge: draft head h reads verifier head h from each selected
+    layer.  This is an efficiency baseline inspired by the new matched-head result;
+    it does NOT implement CacheBridge's attention-sensitivity weighting or fused
+    sufficient-statistics kernel.
+```
+
+For Qwen3-4B -> Qwen3-1.7B with `k=8`, the affine input width is 8192 for Full-Head
+and 1024 for matched-head.  The weight count is about 469.8M versus 58.7M, an 8x
+reduction before biases.
+
+Our paper can only stand if verifier refresh adds value **after** using a strong,
+cheap translator baseline.
+
+## Correctness audit
+
+The current branch fixes several issues that made earlier smoke checkpoints
+unsuitable as scientific evidence:
+
+1. Full-Head uses all source KV heads, not a same-head shortcut.
+2. R² source-layer selection is used for scientific E0; depth selection is smoke-only.
+3. Keys are inverse-RoPE transformed to content space, mapped, then re-rotated with
+   draft-model factors.
+4. Transformers 5.x uses `DynamicCache` for incremental forwards.
+5. Exact speculative decoding emits a target bonus token after a fully accepted
+   block.
+6. Correction/bonus frontiers share the one-token pending-frontier state machine.
+7. Phase-2 `--steps` means optimizer updates, not microbatches.
+8. Target tensors entering a trainable mapper are ordinary `no_grad` tensors, not
+   inference-mode tensors.
+9. E0 calibration directories have a frozen manifest and exact shard set.
+10. E0 16GB/24GB fitting reuses CUDA **after both LLMs are unloaded**, instead of
+    wasting the freed GPU while fitting on CPU.
+11. E1 directly times complete native initialization instead of summing separate
+    medians.
+12. E1 sweeps batches and records OOM as a capacity boundary.
+13. E2 reports both realized MAL and deterministic conditional acceptance mass with
+    paired-bootstrap confidence intervals.
+
+**Discard pre-audit mapper checkpoints and rerun E0.**
 
 ## Setup
 
 ```bash
-cd verifier-anchored-sd
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[hf,dev]'
+pip install -e '.[hf,kvbridge,dev]'
 ```
 
-Hugging Face access to both Qwen checkpoints is required. Use a local JSONL file for
-calibration text (`{"text": "..."}` or one document per line); otherwise E0 streams
-the FineWeb-Edu sample through `datasets`.
+For reproducible science, use frozen local files for calibration/evaluation rather
+than allowing E0 and E2 to stream overlapping FineWeb-Edu prefixes.
 
-## Run the pilot
+## Recommended next run: 16GB
+
+Use an RTX A4000 / 16GB-class card as the first **kill test**, not as a reduced copy
+of the full 24GB paper experiment.
 
 ```bash
-# E0: 500 × 1024, observations sampled every 4 tokens, k=8
+export HF_HUB_CACHE=/path/with/free/space
+export EVAL_TEXT=/path/to/heldout_prompts.jsonl
+bash scripts/run_16gb_next.sh
+```
+
+The script runs:
+
+### E0-16 matched-head
+
+```text
+Qwen3-4B -> Qwen3-1.7B
+128 x 1024-token calibration sequences
+stride = 4                -> 32,768 fit observations
+R² layer selection on 32 sequences
+k = 8
+ridge lambda = 0.01
+capture: controlled CPU offload
+fit: CUDA after both models are deleted
+matched-head fit block: 8 draft layers
+```
+
+Why 128 rather than immediately forcing 500?  The matched-head input is 1024-D, so
+32,768 observations already give a 32x observation/feature ratio.  The point of the
+16GB run is to cheaply establish G0/G1/G2 before spending time on confirmatory
+calibration scaling.
+
+### E1-16
+
+```text
+lengths: 512, 1K, 2K, 4K, 8K
+batch:   1, 2, 4
+warmup:  5
+repeats: 20
+```
+
+Batch 1 is the latency result.  Batches 2/4 are the utilization/throughput curve.
+`--continue-on-oom` records the maximum feasible batch per context length instead of
+throwing away previous rows.
+
+### E2-16
+
+```text
+64 held-out prompts
+512 prompt tokens
+64 generated tokens
+gamma = 4
+Native SD vs Ridge Init-only vs Ridge Refresh
+5000 paired bootstrap samples
+```
+
+This replaces the previous one-prompt smoke.  More independent prompts are more
+valuable for deciding whether refresh is real than one 512-token continuation on a
+slow/offloaded 16GB setup.
+
+Only if E2 passes G2 should the 16GB machine run a 16-prompt x 256-token drift curve.
+
+## Confirmatory run: 24GB
+
+```bash
+export HF_HUB_CACHE=/path/with/free/space
+export EVAL_TEXT=/path/to/heldout_prompts.jsonl
+bash scripts/run_24gb_next.sh
+```
+
+The 24GB script fits and evaluates both translator supports.
+
+### Full-Head baseline
+
+```text
+500 x 1024 calibration
+stride 4 (~128K observations)
+k = 8
+R² selection on all 500
+post-capture CUDA fitting
+```
+
+### Matched-head baseline
+
+Uses the same 500 calibration shards and all 500 final-fit sequences, with R² layer
+selection on 64 sequences.  This isolates mapper support while keeping the model
+pair, benchmark prompts, and content-space treatment fixed.
+
+### E1-24
+
+```text
+lengths: 512, 1K, 2K, 4K, 8K, 16K
+batch:   1, 2, 4, 8
+warmup:  20
+repeats: 100
+```
+
+### E2-24
+
+```text
+200 held-out prompts
+512 prompt tokens
+512 generated tokens
+gamma = 4
+10,000 paired bootstrap samples
+```
+
+## Go / no-go gates
+
+The exact preregistration is in `docs/NEXT_EXPERIMENTS.md`.
+
+### G0 - systems opportunity
+
+Use directly timed native initialization:
+
+```text
+native = target prefill + native draft prefill in one timed function
+bridge = target prefill + target->draft mapping
+```
+
+Hard minimum: batch-1 bridge speedup >1.0 at 4K and 8K.  Preferred continuation
+signal: >=1.5x at either 4K or 8K.
+
+### G1 - translated draft remains useful
+
+Using conditional expected accepted length:
+
+```text
+E[MAL](Ridge Init-only) / E[MAL](Native SD) >= 0.80
+```
+
+If G1 fails, translator error dominates; do not train an acceptance residual.
+
+### G2 - verifier refresh is real
+
+Primary statistic:
+
+```text
+Delta = E[MAL](Ridge Refresh) - E[MAL](Ridge Init-only)
+```
+
+Require the paired-bootstrap 95% CI lower bound for `Delta` to be >0.  A positive
+one-seed realized MAL is not enough.
+
+This gate is now the central paper decision.  If a good matched-head translator
+makes the refresh benefit disappear, the earlier gain was likely repair of a poor
+mapper rather than a general verifier-anchoring principle.
+
+### G3 - long-generation stabilization
+
+Only after G2: measure MAL/acceptance by output-position buckets.  Refresh should
+reduce late-generation degradation relative to Init-only.
+
+### G4 - block-acceptance residual
+
+Only after G0-G2 pass, train the rank-8 residual and compare:
+
+```text
+Ridge Refresh
+one-step TV Refresh
+block-acceptance Refresh
+```
+
+The block objective must beat both held-out baselines without destroying the E1
+systems gain after merging `W0 + gUV^T`.
+
+## E0 CLI
+
+Full-Head example:
+
+```bash
 python bench/fit_ridge_calibration.py \
-  --output checkpoints/qwen3_4b_to_1p7b_ridge.pt
+  --head-mode full --fit-profile 24gb \
+  --sequences 500 --selection-sequences 500 \
+  --seq-len 1024 --stride 4 --k 8 --lambda 0.01 \
+  --layer-selection r2 \
+  --calibration-dir artifacts/e0_full/calibration \
+  --kvbridge-artifact artifacts/e0_full/kvbridge \
+  --output checkpoints/full.pt
+```
 
-# E1: 20 warmups + 100 CUDA-event measurements per length
+Matched-head example:
+
+```bash
+python bench/fit_ridge_calibration.py \
+  --head-mode matched --fit-profile 16gb --low-vram \
+  --sequences 128 --selection-sequences 32 \
+  --seq-len 1024 --stride 4 --k 8 --lambda 0.01 \
+  --layer-selection r2 \
+  --calibration-dir artifacts/e0_matched/calibration \
+  --output checkpoints/matched.pt
+```
+
+## E1 CLI
+
+```bash
 python bench/benchmark_prefill_bridge.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt
+  --mapper checkpoints/matched.pt \
+  --memory-profile 16gb --batch-sizes 1,2,4 \
+  --lengths 512,1024,2048,4096,8192 \
+  --continue-on-oom --mapper-dtype bfloat16
+```
 
-# E2: provide 200 held-out prompt documents as JSONL/raw lines
+For the old offload-only feasibility path, add `--low-vram`; do not mix its
+wall-clock numbers with resident 24GB G0 results.
+
+## E2 CLI
+
+```bash
 python bench/eval_acceptance_pilot.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --text-file data/heldout_prompts.jsonl
+  --mapper checkpoints/matched.pt \
+  --memory-profile 16gb \
+  --text-file data/heldout_prompts.jsonl \
+  --bootstrap-samples 5000 --mapper-dtype bfloat16
 ```
 
-For a long-generation curve after E2:
+The output JSON contains per-prompt rows, summaries, paired-bootstrap differences,
+and explicit G1/G2 booleans.
 
-```bash
-python bench/eval_generation_drift.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --text-file data/heldout_prompts.jsonl
+## Phase 2
+
+Phase 2 remains disabled until the kill tests pass.  The frozen LLMs and base ridge
+mapper receive a small mergeable residual:
+
+```text
+W = W0 + g U V^T,  g=0 at initialization
 ```
 
-Outputs are JSON/JSONL under `results/`, which is intentionally git-ignored. E1
-reports median, P95, mapper-only time, end-to-end bridge time, native total time,
-speedup, and peak allocated VRAM. E2 reports MAL and acceptance rate per method.
-
-## Complete Phase-2 training plan
-
-The acceptance mapper is trained only after E0, E1, and E2 pass their gates. The
-complete operational plan is in [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md).
-The implementation is [`training/fit_acceptance_mapper.py`](training/fit_acceptance_mapper.py).
-
-The short version is:
-
-1. Keep the ridge mapper `W0` and both LLMs frozen; add only a rank-8 `W0 + gUV^T`
-   residual for K and V, with `g=0` at initialization.
-2. Use 2,000 FineWeb-Edu prefixes disjoint from E0 calibration and benchmark
-   prompts, sampling context lengths 512/1024/2048 and draft blocks of `gamma=4`.
-3. Run the target under `no_grad`, sample on-policy draft tokens with
-   `stop_gradient`, and backpropagate only through the frozen draft forward and
-   the mapper residual.
-4. Optimize `-mean(sum_j prod_{i<=j}(1-TV(p_i,q_i))/gamma)` plus the normalized
-   cache residual penalty with weight `1e-3`, AdamW, LR `2e-4`, weight decay `1e-4`,
-   gradient clipping `1.0`, batch 1, accumulation 16, BF16, 500 steps first.
-5. Save every 100 steps, select by held-out MAL (not training loss), merge
-   `W*=W0+gUV^T`, and rerun E2 plus the E1 wall-clock test. Do not claim a gain from
-   the adapter until it beats both Ridge Refresh and one-step-TV on disjoint data.
-
-To initialize without training:
-
-```bash
-python training/fit_acceptance_mapper.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --output checkpoints/qwen3_4b_to_1p7b_block_init.pt \
-  --initialize-only
-```
-
-To train the residual after the gates pass:
-
-```bash
-python training/fit_acceptance_mapper.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --output checkpoints/qwen3_4b_to_1p7b_block_step500.pt \
-  --text-file data/fineweb_acceptance_disjoint.jsonl \
-  --steps 500 --max-steps 1000 --gamma 4 \
-  --context-lengths 512,1024,2048 --rank 8 \
-  --lr 2e-4 --weight-decay 1e-4 --grad-clip 1.0 \
-  --grad-accum 16 --lambda-reg 1e-3 --save-every 100 \
-  --merge-output checkpoints/qwen3_4b_to_1p7b_block_merged.pt
-```
-
-The command performs actual training; the checkpoint is not a new LLM. The main
-checkpoint contains the mapper residual plus optimizer/history sidecars, while
-`--merge-output` writes the inference-time `W* = W0 + gUV^T` checkpoint.
-
-## Correctness contract
-
-The target distribution is never altered. For each proposal position, the exact
-rejection sampler accepts with `min(1, p/q)` and samples a rejection correction from
-`normalize(max(p-q, 0))`. On rejection, the correction token is computed by the
-target only on the next round; until then it is the single permitted draft-native
-pending frontier and is replaced in place after target materialization.
-
-The first draft boundary query recomputes the final prompt token with the mapped
-cache truncated by one position, then discards that query's K/V. This supplies the
-draft next-token logits without duplicating the final prompt token in the persistent
-cache. The subsequent proposal K/V is genuinely incremental; no round reruns the
-whole prefix.
+Available objectives are `one_step_tv` and `block`.  The block objective uses
+prefix-weighted speculative acceptance mass rather than KV reconstruction error.
+See `docs/TRAINING_PLAN.md` for the training protocol.
 
 ## Tests
 
 ```bash
+python -m compileall -q src bench training
 pytest -q
 ```
 
-Tests are CPU-only and cover exact acceptance, cache positions/lengths, mapper
-shapes, pending-frontier replacement, rejection rollback guards, and the block
-acceptance loss. They do not download models.
+CPU tests cover exact rejection sampling, bonus/correction frontiers, cache
+positions, RoPE strip/reapply, Full-Head and matched-head support, streaming
+matched-head centered ridge, optimizer-step accounting, acceptance-mass statistics,
+paired bootstrap, resource profiles, and output-position bucketing.
 
-## Handoff / go-no-go
-
-Do not train the residual until E1 and E2 pass. First inspect:
-
-- G0: bridge total is below native total at 4K/8K, ideally ≥1.5×.
-- G1: Ridge mapped MAL does not catastrophically collapse.
-- G2: Refresh is flatter/better than Init-only over 512 generated tokens.
-
-If G0 or G2 fails, stop and record the failure rather than spending GPU time on the
-block objective. If they pass, follow the complete training plan above. The
-zero-gated adapter can be initialized with:
-
-```bash
-python training/fit_acceptance_mapper.py \
-  --mapper checkpoints/qwen3_4b_to_1p7b_ridge.pt \
-  --output checkpoints/qwen3_4b_to_1p7b_block_init.pt \
-  --initialize-only
-```
-
-`training/block_acceptance_loss.py` implements the intended surrogate
-`-mean(sum_j prod_{i<=j}(1-TV(p_i,q_i))/gamma)` for that later phase.
+GPU/model integration is deliberately a separate claim: rerun E0 -> E1 -> E2 on the
+intended 16GB/24GB CUDA hosts before drawing scientific conclusions.
