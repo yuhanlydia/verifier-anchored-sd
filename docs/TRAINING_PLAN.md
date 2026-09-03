@@ -155,6 +155,11 @@ This profile is for OOM/API feasibility only. Do not compare its latency against
 the 24GB paper gate. Re-run E1/E2 without `--low-vram` on the target 24GB machine
 for scientific numbers.
 
+The low-vram loader uses separate placement budgets (target 6 GiB GPU, draft 4 GiB
+GPU, remaining layers on CPU) so long-context KV and mapper temporaries have room.
+The optional E0 `--layer-selection depth` mode bypasses KVBridge's calibration-R²
+selector only for a labelled integration smoke; it is not a scientific baseline.
+
 ## Command
 
 ```bash

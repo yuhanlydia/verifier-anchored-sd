@@ -47,26 +47,31 @@ def load_hf_pair(
         )
     device_map = {"": device} if device not in {"auto", "balanced", "balanced_low_0"} else device
     load_kwargs = {"torch_dtype": torch_dtype, "trust_remote_code": True, "low_cpu_mem_usage": True}
+    target_load_kwargs = dict(load_kwargs)
+    draft_load_kwargs = dict(load_kwargs)
     if low_vram and torch.cuda.is_available() and device != "cpu":
         # Keep exact BF16 weights; offload only reduces residency. This profile is
         # for smoke/feasibility runs, not for paper wall-clock gates.
         device_map = "auto"
-        load_kwargs.update(
+        target_load_kwargs.update(
             # Leave headroom for long-context KV, the translated cache, and
             # temporary FP32 mapper features.  The 9 GiB cap is intentionally
             # conservative for a 16 GiB card; this is a feasibility profile,
             # not a throughput configuration.
-            max_memory={0: "9GiB", "cpu": "48GiB"},
+            max_memory={0: "6GiB", "cpu": "48GiB"},
             offload_state_dict=True,
             offload_folder=".cache/vakv_offload_target",
         )
+        draft_load_kwargs.update(
+            max_memory={0: "4GiB", "cpu": "48GiB"},
+            offload_state_dict=True,
+            offload_folder=".cache/vakv_offload_draft",
+        )
     target = AutoModelForCausalLM.from_pretrained(
-        target_id, device_map=device_map, **load_kwargs
+        target_id, device_map=device_map, **target_load_kwargs
     ).eval()
-    if low_vram and torch.cuda.is_available() and device != "cpu":
-        load_kwargs["offload_folder"] = ".cache/vakv_offload_draft"
     draft = AutoModelForCausalLM.from_pretrained(
-        draft_id, device_map=device_map, **load_kwargs
+        draft_id, device_map=device_map, **draft_load_kwargs
     ).eval()
     if target.get_input_embeddings().num_embeddings < len(tokenizer):
         raise ValueError("target embedding table does not cover the shared tokenizer")

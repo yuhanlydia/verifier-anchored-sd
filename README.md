@@ -81,7 +81,7 @@ pip install -e '.[hf,kvbridge,dev]'
 The physical batch is already `1`; lowering gradient accumulation alone does not
 reduce model-weight residency. For an RTX A4000/16GB feasibility run, add
 `--low-vram` to E0/E1/E2/training. This keeps exact BF16 weights, enables controlled
-CPU offload, uses training contexts `256,384,512`, sets gradient accumulation to 4,
+CPU offload (target up to 6 GiB and draft up to 4 GiB on the GPU), uses training contexts `256,384,512`, sets gradient accumulation to 4,
 and shortens pilot generation to 128 tokens. It is intended to prove that the
 runtime works and to catch OOM/API bugs, not to claim the 24GB paper speed gate.
 
@@ -110,6 +110,20 @@ python bench/benchmark_prefill_bridge.py \
 python bench/eval_acceptance_pilot.py \
   --mapper checkpoints/qwen3_4b_to_1p7b_ridge_16gb.pt \
   --text-file data/heldout_prompts.jsonl --prompts 20 --low-vram
+```
+
+On a small-disk/slow-CPU machine, E0's R² layer selector can dominate a smoke run.
+For an explicitly non-paper integration check, use `--layer-selection depth` and
+record `k=4` or `k=8` in the result metadata. The default remains `r2` and must be
+used for the paper mapper:
+
+```bash
+python bench/fit_ridge_calibration.py \
+  --sequences 8 --seq-len 1024 --stride 4 --k 4 \
+  --layer-selection depth --low-vram --accumulation-device cpu \
+  --calibration-dir artifacts/e0_depth_smoke/calibration \
+  --kvbridge-artifact artifacts/e0_depth_smoke/kvbridge \
+  --output checkpoints/qwen3_4b_to_1p7b_depth_smoke.pt
 ```
 
 `--low-vram` does not change the scientific defaults; omit it on the intended 24GB
