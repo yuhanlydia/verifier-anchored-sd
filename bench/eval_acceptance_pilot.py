@@ -17,6 +17,7 @@ from pathlib import Path
 import torch
 from common import iter_texts, load_hf_pair
 
+from verifier_anchored_sd.device_utils import timing_device_for_models
 from verifier_anchored_sd.evaluation import paired_bootstrap_mean_difference
 from verifier_anchored_sd.resource_profiles import e2_profile
 from verifier_anchored_sd.spec_decode.hf_runtime import QwenPairRuntime
@@ -75,7 +76,6 @@ def main():
 
     if args.memory_profile != "manual":
         profile = e2_profile(args.memory_profile)
-        # Profile values replace only untouched defaults so explicit CLI overrides win.
         if args.prompts == 200:
             args.prompts = profile.prompts
         if args.prompt_tokens == 512:
@@ -85,7 +85,6 @@ def main():
         if args.gamma == 4:
             args.gamma = profile.gamma
     elif args.low_vram:
-        # Backward-compatible tiny smoke behavior.
         if args.prompt_tokens == 512:
             args.prompt_tokens = 256
         if args.new_tokens == 512:
@@ -111,7 +110,7 @@ def main():
         "ridge_init_only": {"init_mode": "mapped", "refresh": False},
         "ridge_refresh": {"init_mode": "mapped", "refresh": True},
     }
-    cuda_device = next(target.parameters()).device
+    cuda_device = timing_device_for_models(target, draft)
 
     for method, options in methods.items():
         for idx, text in enumerate(texts[: args.prompts]):
@@ -219,6 +218,7 @@ def main():
 
     result = {
         "config": vars(args),
+        "timing_device": str(cuda_device),
         "summary": summary,
         "paired_bootstrap": paired,
         "gates": gates,
