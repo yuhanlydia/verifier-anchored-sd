@@ -20,7 +20,10 @@ def main():
     ap.add_argument("--mapper", required=True)
     ap.add_argument("--target", default="Qwen/Qwen3-4B")
     ap.add_argument("--draft", default="Qwen/Qwen3-1.7B")
-    ap.add_argument("--text-file", required=True)
+    ap.add_argument(
+        "--text-file",
+        help="JSONL with a text field; if omitted, stream FineWeb-Edu for a smoke/pilot run",
+    )
     ap.add_argument("--prompts", type=int, default=200)
     ap.add_argument("--prompt-tokens", type=int, default=512)
     ap.add_argument("--new-tokens", type=int, default=512)
@@ -59,6 +62,8 @@ def main():
         args.device, dtype=map_dtype
     )
     texts = list(iter_texts(args.text_file, limit=args.prompts * 2))
+    if not texts:
+        raise RuntimeError("no usable prompt texts were found")
     rows = []
     methods = {
         "native_sd": {"init_mode": "native", "refresh": False},
