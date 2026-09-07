@@ -1,412 +1,271 @@
 # Verifier-Anchored Speculative Decoding
 
-## Current experiment: screen the model pair first
+This repository studies a narrow question in dual-model speculative decoding:
 
-The latest protocol supersedes the old assumption that matched KV geometry alone
-makes Qwen3-4B -> Qwen3-1.7B a suitable scientific pair. Its new distribution
-screen achieved only `A_transfer=0.601`, so it remains a stress control. The prior
-reported expected-MAL retention of 0.717 used an invalid autoregressive estimator
-and has been withdrawn. The primary candidate is now exact-BF16 Qwen3-8B verifier
--> Qwen3-4B draft.
+> Can verifier state be translated into the draft model so that we both avoid
+> redundant draft prefill and improve the draft proposal distribution by anchoring
+> its historical cache to verifier-computed state?
 
-The experiment order is fixed:
+The target/verifier is always exact. Cross-model translation changes only the draft
+proposal state.
 
-```text
-Pair selection
-  -> near-lossless mapped-history/native-frontier distribution transfer
-  -> speculative compatibility
-  -> historical verifier anchoring with a native causal frontier
-```
+## Core system
 
-On a 16GB GPU, verifier and draft calibration caches are captured in separate
-processes. No quantized weights are used. The distribution screen compares the
-draft against itself on 128 held-out 1,024-token prefixes:
+Standard speculative decoding redundantly prefills the prompt twice:
 
 ```text
-A_transfer = 1 - TV(q_draft_native, q_draft_mapped_history_native_frontier)
-pass         if document-cluster bootstrap 95% CI lower bound > 0.95
-fail         if document-cluster bootstrap 95% CI upper bound <= 0.95
-inconclusive otherwise; expand to 512 prefixes
+prompt -> verifier prefill -> verifier KV
+prompt -> draft prefill    -> draft KV
 ```
 
-Run the resumable two-pair screen with disjoint frozen inputs:
+The bridge removes the second prefill:
+
+```text
+prompt -> verifier prefill -> verifier KV -> M_target_to_draft -> draft KV
+```
+
+During generation the verifier also materializes exact KV for accepted proposal
+tokens. The verifier-anchored idea asks whether those accepted historical states can
+replace draft-generated historical KV.
+
+The causal frontier must remain native to the draft:
+
+```text
+C_draft(t) = [ M(C_verifier(1:t-1)) ; KV_draft_native(t) ]
+```
+
+This avoids the old state inconsistency where logits were produced from a native
+frontier but the next block consumed a mapped frontier.
+
+## Current evidence
+
+The audited 2026-09-07 native-fidelity screen found:
+
+| verifier -> draft | mean A_transfer | bootstrap 95% CI | top-1 | KL(native||mapped) |
+|---|---:|---:|---:|---:|
+| Qwen3-8B -> Qwen3-4B | 0.800360 | [0.765924, 0.833559] | 0.8125 | 0.398420 |
+| Qwen3-4B -> Qwen3-1.7B | 0.600986 | [0.523788, 0.669038] | 0.640625 | 1.238085 |
+
+where
+
+```text
+A_transfer = 1 - TV(q_native_draft, q_mapped_draft)
+```
+
+This proves that 8B -> 4B is materially more transferable than 4B -> 1.7B under the
+same matched-head ridge protocol, but neither is near-lossless native-state
+reconstruction.
+
+**Important correction:** native reconstruction is not the primary speculative-
+decoding gate. SD cares about verifier/proposal overlap.
+
+## Current scientific gate: verifier-target alignment
+
+For one fixed prefix `x_1:t`, compute:
+
+```text
+p_T      = verifier next-token distribution
+q_native = native draft next-token distribution
+q_mapped = mapped verifier history + native draft frontier distribution
+```
+
+Then:
+
+```text
+A_target_native = 1 - TV(p_T, q_native)
+A_target_mapped = 1 - TV(p_T, q_mapped)
+Delta_target = A_target_mapped - A_target_native
+```
+
+Use 10,000 document-cluster paired-bootstrap samples:
+
+```text
+95% CI low  > 0 -> support      -> go_sd
+95% CI high < 0 -> harm         -> stop_pair
+CI crosses 0    -> inconclusive -> expand held-out prefixes
+```
+
+`A_transfer > 0.95` remains a useful native-fidelity diagnostic. It cannot veto SD
+when target alignment significantly improves.
+
+The design is frozen in:
+
+```text
+docs/superpowers/specs/2026-09-07-target-alignment-gate-design.md
+```
+
+The direct testing handoff is:
+
+```text
+docs/NEXT_STAGE_TARGET_ALIGNMENT.md
+```
+
+## Stage A: reuse the existing Qwen3-8B -> Qwen3-4B mapper
+
+Do **not** refit the mapper. This isolates the metric correction from translator
+changes.
+
+Expected local mapper artifact:
+
+```text
+artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt
+```
+
+32GB GPU:
 
 ```bash
-export CALIBRATION_TEXT=/path/to/calibration.jsonl
-export EVAL_TEXT=/path/to/disjoint_evaluation.jsonl
-bash scripts/run_pair_screen.sh
+export EVAL_TEXT=/path/to/frozen_pair_selection.jsonl
+export E2_TEXT=/path/to/third_disjoint_e2.jsonl   # optional until go_sd
+export GPU_MEMORY_GIB=28
+bash scripts/run_target_alignment_next.sh
 ```
 
-The frozen candidate matrix and model revisions are in
-`configs/pair_screen.yaml`. Completed phases resume from validated manifests and
-shards. After a complete result, the script records an artifact inventory and
-prunes large reconstructible shards by default; set `PRUNE_COMPLETED_SHARDS=0` to
-retain them. A completed result makes later invocations skip that pair. Only a
-passing pair may enter HellaSwag confirmation or E2.
+48GB GPU:
 
-E2 now has five methods: native SD, legacy mapped init-only, native-frontier mapped
-init-only, legacy full refresh, and accepted-only refresh. The primary structural
-comparison is accepted-only refresh minus native-frontier init-only. A pair is
-confirmatory only when mapped/native expected-MAL retention is at least 0.90; a
-positive refresh claim requires the paired 95% CI lower bound to exceed zero.
+```bash
+export EVAL_TEXT=/path/to/frozen_pair_selection.jsonl
+export E2_TEXT=/path/to/third_disjoint_e2.jsonl
+export GPU_MEMORY_GIB=44
+bash scripts/run_target_alignment_next.sh
+```
 
-The causal state used by the new method is
+The script runs a non-scientific 4-prefix smoke, then a scientific 128 x 1,024
+screen. It captures verifier KV and FP32 verifier next-token probabilities in a
+fresh artifact root, so old cache-only screen shards cannot contaminate the run.
+
+## Stage B: Qwen3-32B -> Qwen3-14B
+
+If Stage A returns `stop_pair`, test the reverse large-to-small direction directly.
+Do not infer 32B -> 14B quality from prior 14B -> 32B results.
+
+48GB GPU:
+
+```bash
+export CALIBRATION_TEXT=/path/to/frozen_calibration.jsonl
+export EVAL_TEXT=/path/to/disjoint_pair_selection.jsonl
+export GPU_MEMORY_GIB=44
+bash scripts/run_32b_to_14b_pair_screen.sh
+```
+
+32GB GPU:
+
+```bash
+export CALIBRATION_TEXT=/path/to/frozen_calibration.jsonl
+export EVAL_TEXT=/path/to/disjoint_pair_selection.jsonl
+export GPU_MEMORY_GIB=28
+bash scripts/run_32b_to_14b_pair_screen.sh
+```
+
+Fixed scientific settings:
 
 ```text
-[mapped verifier history through t-1 ; native draft frontier at t]
+exact BF16 weights, no automatic quantization
+sequential model loading
+128 x 1,024 calibration windows
+stride = 4 -> 32,768 observations
+32 layer-selection sequences
+matched-head content-space ridge
+k = 8
+ridge lambda = 0.01
+selection ridge = 1e-6
+128 x 1,024 held-out prefixes
+FP32 verifier probability artifacts
+10,000 document-cluster bootstrap samples
 ```
 
-Verifier KV may therefore replace accepted historical draft state, while the token
-that directly predicts the next distribution remains on the native draft path.
+Qwen3-32B exact BF16 requires CPU offload on 32/48GB single-GPU hosts. Recommend at
+least 96 GiB host RAM; 128 GiB is preferred. OOM is an incomplete result, not a
+reason to silently quantize or change the pair.
 
-Research implementation for **Verifier-Anchored Draft Cache Refresh** with the
-matched-KV Qwen3 pair:
+## Native-frontier E2
+
+Only a target-alignment `support` result with `decision.status == go_sd` may enter
+confirmatory E2.
+
+Primary method matrix:
 
 ```text
-verifier / target: Qwen/Qwen3-4B
-draft:             Qwen/Qwen3-1.7B
+native_sd
+mapped_init_only       # mapped history + native frontier
+mapped_accepted_only   # accepted historical KV refreshed; frontier remains native
 ```
 
-The remainder of this README records the earlier 4B -> 1.7B protocol for result
-provenance. The repository is organized around falsifiable kill tests. Do **not** train the
-acceptance residual until E0-E2 establish that translation is useful and continual
-verifier refresh is a real phenomenon.
+Legacy full-refresh variants remain diagnostic only.
 
-## Core idea
+Run:
 
-The target distribution is never approximated.  The target keeps native KV and
-performs exact speculative verification.  Cross-model translation affects only the
-draft proposal cache.
-
-At initialization:
-
-```text
-prompt -> target prefill -> exact target KV -> target-to-draft mapper -> draft KV
+```bash
+export SCREEN_RESULT=/path/to/target_alignment_result.json
+export MAPPER=/path/to/the_exact_screened_mapper.pt
+export EVAL_TEXT=/path/to/third_disjoint_e2.jsonl
+export LOW_VRAM=0
+bash scripts/run_native_frontier_e2.sh
 ```
 
-During generation, the target has already computed exact K/V for accepted proposal
-tokens.  Instead of permanently retaining the draft-generated K/V for those tokens,
-**Ridge Refresh** discards it and maps the verifier's exact new K/V into the
-persistent draft cache.  A rejection correction, or the canonical target bonus
-token after a fully accepted block, is the only one-token draft-native pending
-frontier; on the next target forward that slot is replaced in place.
+For 8B+4B on 32/48GB, prefer resident inference. Set `LOW_VRAM=1` only after a real
+OOM. Do not mix CPU-offload wall-clock with resident systems numbers.
 
-The scientific question is therefore not whether cross-model KV transfer is
-possible.  It is:
+## Task confirmation
 
-> Once target-to-draft KV translation is accurate and cheap, does repeatedly
-> anchoring persistent draft history to newly materialized verifier state improve
-> speculative acceptance / long-generation stability enough to justify refresh?
+HellaSwag confirmation is secondary and also requires target-alignment support. It
+cannot rescue a pair for which mapped state significantly moves the draft away from
+the verifier.
 
-## Important baseline update: CacheBridge
+## Metric validity note
 
-CacheBridge (arXiv:2609.00891, Sep 2026) shows that architecture-indexed matched-head
-cross-model KV mapping can sharply reduce mapper size, construction cost, and
-application latency.  **Matched-head mapping is not a novelty claim of this repo.**
+The old `results/e2_matched_16gb_resident.json` explicitly withdraws the original
+2026-09-03 overlap-product expected-MAL estimate on sampled autoregressive paths.
+Do not reuse those old expected-MAL values or that old formula.
 
-We now expose two translator supports:
+The current runtime contains a different conditional-on-sampled-proposal estimator
+based on actual sampled proposal token acceptance probabilities. It may be reported
+as a secondary E2 metric, but old and new estimates are not interchangeable.
 
-```text
---head-mode full
-    Original Full-Head support: every draft KV head reads all verifier KV heads
-    from each selected verifier layer.
+## Current stop rules
 
---head-mode matched
-    Head-local centered ridge: draft head h reads verifier head h from each selected
-    layer.  This is an efficiency baseline inspired by the new matched-head result;
-    it does NOT implement CacheBridge's attention-sensitivity weighting or fused
-    sufficient-statistics kernel.
-```
+- target alignment `support` -> allow native-frontier E2;
+- target alignment `harm` -> stop that pair;
+- target alignment `inconclusive` -> expand held-out clusters only;
+- incomplete/OOM -> debug execution, never interpret partial metrics;
+- no acceptance residual, one-step-TV training, block-acceptance training, RL, or
+  GRPO until a pair receives `go_sd` and native-frontier E2 establishes a positive
+  refresh effect.
 
-For Qwen3-4B -> Qwen3-1.7B with `k=8`, the affine input width is 8192 for Full-Head
-and 1024 for matched-head.  The weight count is about 469.8M versus 58.7M, an 8x
-reduction before biases.
+## Debug contract
 
-Our paper can only stand if verifier refresh adds value **after** using a strong,
-cheap translator baseline.
+The testing agent must stop on token/cache/probability row mismatch, model revision
+mismatch, tokenizer mismatch, vocabulary mismatch, invalid probabilities, frontier
+provenance mismatch, artifact contamination, calibration/evaluation overlap, OOM, or
+use of the withdrawn old expected-MAL formula.
 
-## Correctness audit
+See `docs/NEXT_STAGE_TARGET_ALIGNMENT.md` for the complete ten-condition STOP
+contract and `RUN_REPORT.md` requirements.
 
-The current branch fixes several issues that made earlier smoke checkpoints
-unsuitable as scientific evidence:
-
-1. Full-Head uses all source KV heads, not a same-head shortcut.
-2. R² source-layer selection is used for scientific E0; depth selection is smoke-only.
-3. Keys are inverse-RoPE transformed to content space, mapped, then re-rotated with
-   draft-model factors.
-4. Transformers 5.x uses `DynamicCache` for incremental forwards.
-5. Exact speculative decoding emits a target bonus token after a fully accepted
-   block.
-6. Correction/bonus frontiers share the one-token pending-frontier state machine.
-7. Phase-2 `--steps` means optimizer updates, not microbatches.
-8. Target tensors entering a trainable mapper are ordinary `no_grad` tensors, not
-   inference-mode tensors.
-9. E0 calibration directories have a frozen manifest and exact shard set.
-10. E0 16GB/24GB fitting reuses CUDA **after both LLMs are unloaded**, instead of
-    wasting the freed GPU while fitting on CPU.
-11. E1 directly times complete native initialization instead of summing separate
-    medians.
-12. E1 sweeps batches and records OOM as a capacity boundary.
-13. E2 reports both realized MAL and proposal-path conditional expected acceptance
-    with paired-bootstrap confidence intervals.
-
-**Discard pre-audit mapper checkpoints and rerun E0.**
-
-## Setup
+## Setup and CPU verification
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[hf,kvbridge,dev]'
-```
 
-For reproducible science, use frozen local files for calibration/evaluation rather
-than allowing E0 and E2 to stream overlapping FineWeb-Edu prefixes.
-
-## Recommended next run: 16GB
-
-Use an RTX A4000 / 16GB-class card as the first **kill test**, not as a reduced copy
-of the full 24GB paper experiment.
-
-```bash
-export HF_HUB_CACHE=/path/with/free/space
-export EVAL_TEXT=/path/to/heldout_prompts.jsonl
-bash scripts/run_16gb_next.sh
-```
-
-The script runs:
-
-### E0-16 matched-head
-
-```text
-Qwen3-4B -> Qwen3-1.7B
-128 x 1024-token calibration sequences
-stride = 4                -> 32,768 fit observations
-R² layer selection on 32 sequences
-k = 8
-ridge lambda = 0.01
-capture: controlled CPU offload
-fit: CUDA after both models are deleted
-matched-head fit block: 8 draft layers
-```
-
-Why 128 rather than immediately forcing 500?  The matched-head input is 1024-D, so
-32,768 observations already give a 32x observation/feature ratio.  The point of the
-16GB run is to cheaply establish G0/G1/G2 before spending time on confirmatory
-calibration scaling.
-
-### E1-16
-
-```text
-lengths: 512, 1K, 2K, 4K, 8K
-batch:   1, 2, 4
-warmup:  5
-repeats: 20
-```
-
-Batch 1 is the latency result.  Batches 2/4 are the utilization/throughput curve.
-`--continue-on-oom` records the maximum feasible batch per context length instead of
-throwing away previous rows.
-
-### E2-16
-
-```text
-64 held-out prompts
-512 prompt tokens
-64 generated tokens
-gamma = 4
-Native SD vs Ridge Init-only vs Ridge Refresh
-5000 paired bootstrap samples
-```
-
-This replaces the previous one-prompt smoke.  More independent prompts are more
-valuable for deciding whether refresh is real than one 512-token continuation on a
-slow/offloaded 16GB setup.
-
-Only if E2 passes G2 should the 16GB machine run a 16-prompt x 256-token drift curve.
-
-## Confirmatory run: 24GB
-
-```bash
-export HF_HUB_CACHE=/path/with/free/space
-export EVAL_TEXT=/path/to/heldout_prompts.jsonl
-bash scripts/run_24gb_next.sh
-```
-
-The 24GB script fits and evaluates both translator supports.
-
-### Full-Head baseline
-
-```text
-500 x 1024 calibration
-stride 4 (~128K observations)
-k = 8
-R² selection on all 500
-post-capture CUDA fitting
-```
-
-### Matched-head baseline
-
-Uses the same 500 calibration shards and all 500 final-fit sequences, with R² layer
-selection on 64 sequences.  This isolates mapper support while keeping the model
-pair, benchmark prompts, and content-space treatment fixed.
-
-### E1-24
-
-```text
-lengths: 512, 1K, 2K, 4K, 8K, 16K
-batch:   1, 2, 4, 8
-warmup:  20
-repeats: 100
-```
-
-### E2-24
-
-```text
-200 held-out prompts
-512 prompt tokens
-512 generated tokens
-gamma = 4
-10,000 paired bootstrap samples
-```
-
-## Go / no-go gates
-
-The exact preregistration is in `docs/NEXT_EXPERIMENTS.md`.
-
-### G0 - systems opportunity
-
-Use directly timed native initialization:
-
-```text
-native = target prefill + native draft prefill in one timed function
-bridge = target prefill + target->draft mapping
-```
-
-Hard minimum: batch-1 bridge speedup >1.0 at 4K and 8K.  Preferred continuation
-signal: >=1.5x at either 4K or 8K.
-
-### G1 - translated draft remains useful
-
-Using conditional expected accepted length:
-
-```text
-E[MAL](Ridge Init-only) / E[MAL](Native SD) >= 0.80
-```
-
-If G1 fails, translator error dominates; do not train an acceptance residual.
-
-### G2 - verifier refresh is real
-
-Primary statistic:
-
-```text
-Delta = E[MAL](Ridge Refresh) - E[MAL](Ridge Init-only)
-```
-
-Require the paired-bootstrap 95% CI lower bound for `Delta` to be >0.  A positive
-one-seed realized MAL is not enough.
-
-This gate is now the central paper decision.  If a good matched-head translator
-makes the refresh benefit disappear, the earlier gain was likely repair of a poor
-mapper rather than a general verifier-anchoring principle.
-
-### G3 - long-generation stabilization
-
-Only after G2: measure MAL/acceptance by output-position buckets.  Refresh should
-reduce late-generation degradation relative to Init-only.
-
-### G4 - block-acceptance residual
-
-Only after G0-G2 pass, train the rank-8 residual and compare:
-
-```text
-Ridge Refresh
-one-step TV Refresh
-block-acceptance Refresh
-```
-
-The block objective must beat both held-out baselines without destroying the E1
-systems gain after merging `W0 + gUV^T`.
-
-## E0 CLI
-
-Full-Head example:
-
-```bash
-python bench/fit_ridge_calibration.py \
-  --head-mode full --fit-profile 24gb \
-  --sequences 500 --selection-sequences 500 \
-  --seq-len 1024 --stride 4 --k 8 --lambda 0.01 \
-  --layer-selection r2 \
-  --calibration-dir artifacts/e0_full/calibration \
-  --kvbridge-artifact artifacts/e0_full/kvbridge \
-  --output checkpoints/full.pt
-```
-
-Matched-head example:
-
-```bash
-python bench/fit_ridge_calibration.py \
-  --head-mode matched --fit-profile 16gb --low-vram \
-  --sequences 128 --selection-sequences 32 \
-  --seq-len 1024 --stride 4 --k 8 --lambda 0.01 \
-  --layer-selection r2 \
-  --calibration-dir artifacts/e0_matched/calibration \
-  --output checkpoints/matched.pt
-```
-
-## E1 CLI
-
-```bash
-python bench/benchmark_prefill_bridge.py \
-  --mapper checkpoints/matched.pt \
-  --memory-profile 16gb --batch-sizes 1,2,4 \
-  --lengths 512,1024,2048,4096,8192 \
-  --continue-on-oom --mapper-dtype bfloat16
-```
-
-For the old offload-only feasibility path, add `--low-vram`; do not mix its
-wall-clock numbers with resident 24GB G0 results.
-
-## E2 CLI
-
-```bash
-python bench/eval_acceptance_pilot.py \
-  --screen-result results/pair_screen_2026-09-07/qwen3_8b_to_4b.json \
-  --mapper artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt \
-  --memory-profile 16gb \
-  --text-file data/heldout_prompts.jsonl \
-  --bootstrap-samples 5000 --mapper-dtype bfloat16
-```
-
-The output JSON contains per-prompt rows, summaries, paired-bootstrap differences,
-and explicit G1/G2 booleans.
-
-## Phase 2
-
-Phase 2 remains disabled until the kill tests pass.  The frozen LLMs and base ridge
-mapper receive a small mergeable residual:
-
-```text
-W = W0 + g U V^T,  g=0 at initialization
-```
-
-Available objectives are `one_step_tv` and `block`.  The block objective uses
-prefix-weighted speculative acceptance mass rather than KV reconstruction error.
-See `docs/TRAINING_PLAN.md` for the training protocol.
-
-## Tests
-
-```bash
 python -m compileall -q src bench training
 pytest -q
+bash -n scripts/run_target_alignment_next.sh
+bash -n scripts/run_32b_to_14b_pair_screen.sh
+bash -n scripts/run_native_frontier_e2.sh
 ```
 
-CPU tests cover exact rejection sampling, bonus/correction frontiers, cache
-positions, RoPE strip/reapply, Full-Head and matched-head support, streaming
-matched-head centered ridge, optimizer-step accounting, acceptance-mass statistics,
-paired bootstrap, resource profiles, and output-position bucketing.
+Do not start a scientific GPU run unless all CPU/shell checks pass.
 
-GPU/model integration is deliberately a separate claim: rerun E0 -> E1 -> E2 on the
-intended 16GB/24GB CUDA hosts before drawing scientific conclusions.
+## Historical provenance
+
+The older 16GB/full-head/matched-head experiments and their negative 4B -> 1.7B
+results remain documented in:
+
+```text
+docs/EXPERIMENT_16GB_2026-09-03.md
+docs/SMOKE_RESULTS_16GB.md
+docs/PAIR_SCREEN_2026-09-07.md
+```
+
+Those files are evidence records, not the current execution protocol.
