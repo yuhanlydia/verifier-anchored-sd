@@ -44,7 +44,7 @@ class MapperMetadata:
     head_mode: HeadMode = "full"
 
     @classmethod
-    def from_dict(cls, value: Mapping) -> "MapperMetadata":
+    def from_dict(cls, value: Mapping) -> MapperMetadata:
         data = dict(value)
         # Backward compatibility is metadata-only. Scientifically invalid old
         # checkpoint tensors still fail the width validation in RidgeKVMapper.
@@ -116,7 +116,7 @@ class RidgeKVMapper:
         device: str | torch.device,
         *,
         dtype: torch.dtype | None = None,
-    ) -> "RidgeKVMapper":
+    ) -> RidgeKVMapper:
         self.weights = self.weights.to(device=device, dtype=dtype)
         self.bias = self.bias.to(device=device, dtype=dtype)
         if self.u is not None:
@@ -236,7 +236,7 @@ class RidgeKVMapper:
             torch.tensor(0.0, device=self.device, dtype=self.weights.dtype)
         )
 
-    def merge_residual(self) -> "RidgeKVMapper":
+    def merge_residual(self) -> RidgeKVMapper:
         if self.u is None or self.v is None:
             return self
         delta = torch.einsum("...dr,...rf->...df", self.u, self.v)
@@ -261,7 +261,7 @@ class RidgeKVMapper:
         }
 
     @classmethod
-    def from_state_dict(cls, state: Mapping) -> "RidgeKVMapper":
+    def from_state_dict(cls, state: Mapping) -> RidgeKVMapper:
         metadata = MapperMetadata.from_dict(state["metadata"])
         mapper = cls(metadata, state["weights"], state["bias"])
         saved_gate = state.get("gate", mapper.gate)
@@ -281,7 +281,7 @@ class RidgeKVMapper:
     @classmethod
     def load(
         cls, path: str | Path, map_location: str | torch.device = "cpu"
-    ) -> "RidgeKVMapper":
+    ) -> RidgeKVMapper:
         return cls.from_state_dict(
             torch.load(path, map_location=map_location, weights_only=False)
         )
@@ -292,7 +292,7 @@ class RidgeKVMapper:
         directory: str | Path,
         *,
         dtype: torch.dtype = torch.float32,
-    ) -> "RidgeKVMapper":
+    ) -> RidgeKVMapper:
         """Import the original full-head KVBridge artifact into runtime format."""
         try:
             from kvbridge.mapper import CrossModelKVMapper

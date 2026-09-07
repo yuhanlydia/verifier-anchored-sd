@@ -1,4 +1,10 @@
 {
+  "metric_validity": {
+    "expected_accepted_length": "withdrawn: invalid overlap-product estimator on sampled autoregressive paths",
+    "expected_mal_gates": "withdrawn",
+    "realized_mal": "retained as descriptive stochastic evidence",
+    "correction_date": "2026-09-07"
+  },
   "config": {
     "mapper": "checkpoints/qwen3_4b_to_1p7b_matched_16gb.pt",
     "target": "Qwen/Qwen3-4B",

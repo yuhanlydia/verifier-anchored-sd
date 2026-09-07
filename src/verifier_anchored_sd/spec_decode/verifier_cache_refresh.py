@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import torch
+
 from .cache_state import CacheState, RotaryFactors
 from .target_to_draft_mapper import RidgeKVMapper
 
@@ -12,6 +14,7 @@ from .target_to_draft_mapper import RidgeKVMapper
 class PendingFrontier:
     token_id: int
     cache_index: int
+    next_probs: torch.Tensor | None = None
 
 
 class VerifierAnchoredCache:
@@ -49,20 +52,40 @@ class VerifierAnchoredCache:
             raise RuntimeError("materialize the pending frontier before appending verified KV")
         self.draft_cache.append(self.mapper.map(target_tokens, draft_rotary=draft_rotary))
 
-    def append_pending(self, token_id: int, native_draft_token: CacheState) -> None:
+    def append_pending(
+        self,
+        token_id: int,
+        native_draft_token: CacheState,
+        *,
+        next_probs: torch.Tensor | None = None,
+    ) -> None:
         if self.pending is not None:
             raise RuntimeError("only one pending frontier is permitted")
         if native_draft_token.seq_len != 1:
             raise ValueError("pending frontier must contain exactly one token")
         self.draft_cache.append(native_draft_token)
-        self.pending = PendingFrontier(token_id, self.draft_cache.seq_len - 1)
+        self.pending = PendingFrontier(
+            token_id,
+            self.draft_cache.seq_len - 1,
+            None if next_probs is None else next_probs.detach().clone(),
+        )
+
+    def resolve_pending_native(self, token_id: int) -> torch.Tensor | None:
+        """Clear the marker while permanently retaining its native draft KV."""
+        if self.pending is None:
+            raise RuntimeError("no pending frontier to resolve")
+        if token_id != self.pending.token_id:
+            raise ValueError(f"expected pending token {self.pending.token_id}, got {token_id}")
+        next_probs = self.pending.next_probs
+        self.pending = None
+        return next_probs
 
     def materialize_pending(
         self,
         token_id: int,
         target_token: CacheState,
         draft_rotary: RotaryFactors | None = None,
-    ) -> None:
+    ) -> torch.Tensor | None:
         if self.pending is None:
             raise RuntimeError("no pending frontier to materialize")
         if token_id != self.pending.token_id:
@@ -71,4 +94,6 @@ class VerifierAnchoredCache:
             raise ValueError("target frontier must contain exactly one token")
         replacement = self.mapper.map(target_token, draft_rotary=draft_rotary)
         self.draft_cache.replace_slice(self.pending.cache_index, replacement)
+        next_probs = self.pending.next_probs
         self.pending = None
+        return next_probs

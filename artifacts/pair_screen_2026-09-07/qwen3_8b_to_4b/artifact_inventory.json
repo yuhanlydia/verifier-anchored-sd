@@ -1,0 +1,57 @@
+{
+  "files": {
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/draft/complete.json": {
+      "bytes": 194,
+      "sha256": "0a77ca48cff044c81150ad9b3679f0995916bc761e5751038b2561ff4d739ed6"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/draft/manifest.json": {
+      "bytes": 17475,
+      "sha256": "b721bffc9c1daec50b4e95b71128365be2b651cab9e5f3e09c37876d5cd17e52"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/source/complete.json": {
+      "bytes": 194,
+      "sha256": "6a3f32d30f0db9f458a14adbdf71cb29015a12d4c2cc8dae38a59724023f4b25"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/source/manifest.json": {
+      "bytes": 17476,
+      "sha256": "e53307a8b21ddf6cbc565a74505f17751fdaa616bbfff5ed47104b8ba5ad26b7"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/tokens.pt": {
+      "bytes": 392761,
+      "sha256": "01f3fc72c768420690882d8815b074bcc3a93c46addc985c7935e7d55af06789"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/calibration/tokens/manifest.json": {
+      "bytes": 17335,
+      "sha256": "748b03316918ee1355b50f7578e20167a963dacf93b79ba8fdd2bd24069ef4bd"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt": {
+      "bytes": 302287987,
+      "sha256": "c1e388f652ceb071bd0087f6f1e7cf057530a43004c293e456bdfc3e88f6cd80"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt.json": {
+      "bytes": 52574,
+      "sha256": "6f906c89023f84935605b9a433e8b784dd1661202e1f25c2e8ca0be0b3a059ba"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/screen/complete.json": {
+      "bytes": 39,
+      "sha256": "ac39c3ba95fc150a71407e8dbf7ece30a9be01b478f25937800fde10ce29e3a9"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/screen/manifest.json": {
+      "bytes": 17370,
+      "sha256": "98de89039092c189e1a5bede5e76b4b8144f191b993e4943ce987ae1f88dbe61"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/screen/tokens.pt": {
+      "bytes": 390137,
+      "sha256": "75ff614b1755716638d2298d39a7d19db823e195d1ab6a650d51c6ef60c008ee"
+    },
+    "artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/screen/tokens/manifest.json": {
+      "bytes": 17076,
+      "sha256": "878ec8d90d297a60a8c50cc51712d9482d3b919cdf58a29753cc68edd427d1c6"
+    },
+    "results/pair_screen_2026-09-07/qwen3_8b_to_4b.json": {
+      "bytes": 229804,
+      "sha256": "f7a72e1a370cdb2e532812693d51e9b95ba376622431e419ccc95e98b186c903"
+    }
+  },
+  "schema_version": 2
+}

@@ -1,0 +1,56 @@
+schema_version: 1
+protocol: pair_screen_2026-09-07
+
+models:
+  qwen3_8b:
+    id: Qwen/Qwen3-8B
+    revision: b968826d9c46dd6066d109eabc6255188de91218
+  qwen3_4b:
+    id: Qwen/Qwen3-4B
+    revision: 1cfa9a7208912126459214e8b04321603b3df60c
+  qwen3_1p7b:
+    id: Qwen/Qwen3-1.7B
+    revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+
+candidates:
+  - name: qwen3_8b_to_4b
+    target: qwen3_8b
+    draft: qwen3_4b
+    role: primary
+  - name: qwen3_4b_to_1p7b
+    target: qwen3_4b
+    draft: qwen3_1p7b
+    role: stress_control
+
+calibration:
+  sequences: 128
+  sequence_length: 1024
+  observation_stride: 4
+  selection_sequences: 32
+  source_layers_per_draft_layer: 8
+  ridge_lambda: 0.01
+  selection_ridge: 0.000001
+  content_space_keys: true
+  exact_weight_dtype: bfloat16
+
+screen:
+  prompts: 128
+  prefix_tokens: 1024
+  bootstrap_samples: 10000
+  seed: 0
+  a_transfer_threshold: 0.95
+  pass_rule: ci_low_strictly_greater_than_threshold
+  fail_rule: ci_high_less_than_or_equal_to_threshold
+  inconclusive_expansion_prompts: 512
+
+confirmation:
+  hellaswag_floor_normalized_retention_threshold: 0.95
+  expected_mal_confirmatory_threshold: 0.90
+  expected_mal_exploratory_threshold: 0.85
+  accepted_only_support_rule: paired_ci_low_strictly_greater_than_zero
+  accepted_only_stop_rule: paired_ci_high_strictly_less_than_zero
+
+hardware:
+  sequential_model_loading: true
+  gpu_memory_gib: 14
+  mapper_fit_device: cuda

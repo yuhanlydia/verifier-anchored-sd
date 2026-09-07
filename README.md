@@ -1,5 +1,64 @@
 # Verifier-Anchored Speculative Decoding
 
+## Current experiment: screen the model pair first
+
+The latest protocol supersedes the old assumption that matched KV geometry alone
+makes Qwen3-4B -> Qwen3-1.7B a suitable scientific pair. Its new distribution
+screen achieved only `A_transfer=0.601`, so it remains a stress control. The prior
+reported expected-MAL retention of 0.717 used an invalid autoregressive estimator
+and has been withdrawn. The primary candidate is now exact-BF16 Qwen3-8B verifier
+-> Qwen3-4B draft.
+
+The experiment order is fixed:
+
+```text
+Pair selection
+  -> near-lossless mapped-history/native-frontier distribution transfer
+  -> speculative compatibility
+  -> historical verifier anchoring with a native causal frontier
+```
+
+On a 16GB GPU, verifier and draft calibration caches are captured in separate
+processes. No quantized weights are used. The distribution screen compares the
+draft against itself on 128 held-out 1,024-token prefixes:
+
+```text
+A_transfer = 1 - TV(q_draft_native, q_draft_mapped_history_native_frontier)
+pass         if document-cluster bootstrap 95% CI lower bound > 0.95
+fail         if document-cluster bootstrap 95% CI upper bound <= 0.95
+inconclusive otherwise; expand to 512 prefixes
+```
+
+Run the resumable two-pair screen with disjoint frozen inputs:
+
+```bash
+export CALIBRATION_TEXT=/path/to/calibration.jsonl
+export EVAL_TEXT=/path/to/disjoint_evaluation.jsonl
+bash scripts/run_pair_screen.sh
+```
+
+The frozen candidate matrix and model revisions are in
+`configs/pair_screen.yaml`. Completed phases resume from validated manifests and
+shards. After a complete result, the script records an artifact inventory and
+prunes large reconstructible shards by default; set `PRUNE_COMPLETED_SHARDS=0` to
+retain them. A completed result makes later invocations skip that pair. Only a
+passing pair may enter HellaSwag confirmation or E2.
+
+E2 now has five methods: native SD, legacy mapped init-only, native-frontier mapped
+init-only, legacy full refresh, and accepted-only refresh. The primary structural
+comparison is accepted-only refresh minus native-frontier init-only. A pair is
+confirmatory only when mapped/native expected-MAL retention is at least 0.90; a
+positive refresh claim requires the paired 95% CI lower bound to exceed zero.
+
+The causal state used by the new method is
+
+```text
+[mapped verifier history through t-1 ; native draft frontier at t]
+```
+
+Verifier KV may therefore replace accepted historical draft state, while the token
+that directly predicts the next distribution remains on the native draft path.
+
 Research implementation for **Verifier-Anchored Draft Cache Refresh** with the
 matched-KV Qwen3 pair:
 
@@ -8,7 +67,8 @@ verifier / target: Qwen/Qwen3-4B
 draft:             Qwen/Qwen3-1.7B
 ```
 
-The repository is organized around falsifiable kill tests.  Do **not** train the
+The remainder of this README records the earlier 4B -> 1.7B protocol for result
+provenance. The repository is organized around falsifiable kill tests. Do **not** train the
 acceptance residual until E0-E2 establish that translation is useful and continual
 verifier refresh is a real phenomenon.
 
@@ -87,8 +147,8 @@ unsuitable as scientific evidence:
 11. E1 directly times complete native initialization instead of summing separate
     medians.
 12. E1 sweeps batches and records OOM as a capacity boundary.
-13. E2 reports both realized MAL and deterministic conditional acceptance mass with
-    paired-bootstrap confidence intervals.
+13. E2 reports both realized MAL and proposal-path conditional expected acceptance
+    with paired-bootstrap confidence intervals.
 
 **Discard pre-audit mapper checkpoints and rerun E0.**
 
@@ -313,7 +373,8 @@ wall-clock numbers with resident 24GB G0 results.
 
 ```bash
 python bench/eval_acceptance_pilot.py \
-  --mapper checkpoints/matched.pt \
+  --screen-result results/pair_screen_2026-09-07/qwen3_8b_to_4b.json \
+  --mapper artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt \
   --memory-profile 16gb \
   --text-file data/heldout_prompts.jsonl \
   --bootstrap-samples 5000 --mapper-dtype bfloat16

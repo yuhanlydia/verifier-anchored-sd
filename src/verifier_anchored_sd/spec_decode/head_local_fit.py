@@ -35,6 +35,7 @@ class _CenteredStats:
     mean_y: torch.Tensor
     cxx: torch.Tensor
     cxy: torch.Tensor
+    cyy: torch.Tensor
 
     @classmethod
     def zeros(
@@ -44,13 +45,14 @@ class _CenteredStats:
         features: int,
         out_dim: int,
         device: torch.device,
-    ) -> "_CenteredStats":
+    ) -> _CenteredStats:
         return cls(
             0,
             torch.zeros(heads, features, device=device, dtype=torch.float32),
             torch.zeros(heads, out_dim, device=device, dtype=torch.float32),
             torch.zeros(heads, features, features, device=device, dtype=torch.float32),
             torch.zeros(heads, features, out_dim, device=device, dtype=torch.float32),
+            torch.zeros(heads, device=device, dtype=torch.float32),
         )
 
     def update(self, x: torch.Tensor, y: torch.Tensor) -> None:
@@ -68,12 +70,14 @@ class _CenteredStats:
         yc = y - batch_mean_y[:, None, :]
         batch_cxx = torch.einsum("hnp,hnq->hpq", xc, xc)
         batch_cxy = torch.einsum("hnp,hnd->hpd", xc, yc)
+        batch_cyy = torch.einsum("hnd,hnd->h", yc, yc)
         if self.count == 0:
             self.count = samples
             self.mean_x.copy_(batch_mean_x)
             self.mean_y.copy_(batch_mean_y)
             self.cxx.copy_(batch_cxx)
             self.cxy.copy_(batch_cxy)
+            self.cyy.copy_(batch_cyy)
             return
 
         old = self.count
@@ -85,6 +89,8 @@ class _CenteredStats:
         self.cxx.add_(torch.einsum("hp,hq->hpq", delta_x, delta_x), alpha=factor)
         self.cxy.add_(batch_cxy)
         self.cxy.add_(torch.einsum("hp,hd->hpd", delta_x, delta_y), alpha=factor)
+        self.cyy.add_(batch_cyy)
+        self.cyy.add_(torch.einsum("hd,hd->h", delta_y, delta_y), alpha=factor)
         self.mean_x.add_(delta_x, alpha=float(samples) / float(new))
         self.mean_y.add_(delta_y, alpha=float(samples) / float(new))
         self.count = new
@@ -99,6 +105,17 @@ class _CenteredStats:
         weight = torch.linalg.solve(system, self.cxy)  # [H,P,D]
         bias = self.mean_y - torch.einsum("hp,hpd->hd", self.mean_x, weight)
         return weight, bias
+
+    def r2(self, ridge: float) -> torch.Tensor:
+        """Return multivariate centered R² independently for every KV head."""
+        weight, _ = self.solve(ridge)
+        explained = 2.0 * torch.einsum("hpd,hpd->h", weight, self.cxy)
+        explained -= torch.einsum("hpd,hpq,hqd->h", weight, self.cxx, weight)
+        return torch.where(
+            self.cyy > 0,
+            1.0 - (self.cyy - explained) / self.cyy.clamp_min(1e-12),
+            torch.zeros_like(self.cyy),
+        )
 
 
 def _validate_pair(
@@ -118,6 +135,105 @@ def _validate_pair(
         raise ValueError("matched-head fit requires equal configured KV-head counts")
     if source.head_dim != head_dim or draft.head_dim != head_dim:
         raise ValueError("calibration head dimension does not match mapper geometry")
+
+
+def select_source_layers_by_r2(
+    pairs: CachePairSource,
+    *,
+    target_layers: int,
+    draft_layers: int,
+    kv_heads: int,
+    head_dim: int,
+    top_k: int,
+    device: str | torch.device = "cuda",
+    layer_block_size: int = 1,
+    content_space: bool = True,
+    ridge: float = 1e-6,
+) -> tuple[list[list[int]], list[list[float]]]:
+    """Select source layers by matched-head key/value averaged single-layer R²."""
+    if min(target_layers, draft_layers, kv_heads, head_dim, top_k, layer_block_size) <= 0:
+        raise ValueError("layer counts, geometry, top_k, and block size must be positive")
+    if ridge < 0:
+        raise ValueError("selection ridge must be non-negative")
+    accumulation_device = torch.device(device)
+    if accumulation_device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA layer selection requested but CUDA is unavailable")
+    reusable = pairs if callable(pairs) else list(pairs)
+    selected: list[list[int]] = [[] for _ in range(draft_layers)]
+    all_scores: list[list[float]] = [[] for _ in range(draft_layers)]
+    expected_pairs: int | None = None
+
+    for block_start in range(0, draft_layers, layer_block_size):
+        block = range(block_start, min(block_start + layer_block_size, draft_layers))
+        statistics = {
+            (draft_layer, source_layer, kind): _CenteredStats.zeros(
+                heads=kv_heads,
+                features=head_dim,
+                out_dim=head_dim,
+                device=accumulation_device,
+            )
+            for draft_layer in block
+            for source_layer in range(target_layers)
+            for kind in (0, 1)
+        }
+        pair_count = 0
+        for source_raw, draft_raw in _iterate(reusable):
+            _validate_pair(
+                source_raw,
+                draft_raw,
+                target_layers=target_layers,
+                draft_layers=draft_layers,
+                kv_heads=kv_heads,
+                head_dim=head_dim,
+            )
+            source = source_raw.to(accumulation_device)
+            draft = draft_raw.to(accumulation_device)
+            if content_space:
+                source = source.to_content_space()
+                draft = draft.to_content_space()
+            pair_count += 1
+            for draft_layer in block:
+                for source_layer in range(target_layers):
+                    for kind in (0, 1):
+                        source_tensor = (
+                            source.layers[source_layer].key
+                            if kind == 0
+                            else source.layers[source_layer].value
+                        )
+                        draft_tensor = (
+                            draft.layers[draft_layer].key
+                            if kind == 0
+                            else draft.layers[draft_layer].value
+                        )
+                        x = source_tensor.permute(1, 0, 2, 3).reshape(
+                            kv_heads, -1, head_dim
+                        )
+                        y = draft_tensor.permute(1, 0, 2, 3).reshape(
+                            kv_heads, -1, head_dim
+                        )
+                        statistics[(draft_layer, source_layer, kind)].update(x, y)
+        if pair_count == 0:
+            raise ValueError("calibration pair source was empty")
+        if expected_pairs is None:
+            expected_pairs = pair_count
+        elif pair_count != expected_pairs:
+            raise ValueError("calibration pair source changed across selection passes")
+
+        for draft_layer in block:
+            scores = []
+            for source_layer in range(target_layers):
+                kind_scores = [
+                    statistics[(draft_layer, source_layer, kind)].r2(ridge).mean()
+                    for kind in (0, 1)
+                ]
+                scores.append(float(torch.stack(kind_scores).mean()))
+            ranked = sorted(range(target_layers), key=lambda index: (-scores[index], index))
+            selected[draft_layer] = ranked[: min(top_k, target_layers)]
+            all_scores[draft_layer] = scores
+        del statistics
+        if accumulation_device.type == "cuda":
+            torch.cuda.empty_cache()
+    return selected, all_scores
 
 
 def fit_matched_head_mapper_from_cache_pairs(
