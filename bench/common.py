@@ -11,15 +11,68 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch
 
+from verifier_anchored_sd.model_contracts import validate_tokenizer_pair
 
-def _tokenizer_contract(tokenizer) -> dict:
-    return {
-        "vocab": tokenizer.get_vocab(),
-        "special_tokens_map": tokenizer.special_tokens_map,
-        "bos_token_id": tokenizer.bos_token_id,
-        "eos_token_id": tokenizer.eos_token_id,
-        "pad_token_id": tokenizer.pad_token_id,
+
+def resolve_dtype(dtype: str) -> torch.dtype:
+    try:
+        return {
+            "bfloat16": torch.bfloat16,
+            "float16": torch.float16,
+            "float32": torch.float32,
+        }[dtype]
+    except KeyError as exc:
+        raise ValueError(f"unsupported dtype: {dtype}") from exc
+
+
+def load_hf_tokenizer(model_id: str, *, revision: str = "main"):
+    try:
+        from transformers import AutoTokenizer
+    except ImportError as exc:
+        raise RuntimeError("install the HF extra: pip install -e '.[hf]'") from exc
+    return AutoTokenizer.from_pretrained(
+        model_id,
+        revision=revision,
+        trust_remote_code=True,
+    )
+
+
+def load_hf_model(
+    model_id: str,
+    device: str,
+    dtype: str = "bfloat16",
+    *,
+    revision: str = "main",
+    gpu_memory_gib: int | None = None,
+    offload_folder: str | Path | None = None,
+):
+    """Load one exact-weight model, optionally with a bounded CUDA allocation."""
+    try:
+        from transformers import AutoModelForCausalLM
+    except ImportError as exc:
+        raise RuntimeError("install the HF extra: pip install -e '.[hf]'") from exc
+    load_kwargs = {
+        "torch_dtype": resolve_dtype(dtype),
+        "trust_remote_code": True,
+        "low_cpu_mem_usage": True,
+        "revision": revision,
     }
+    if gpu_memory_gib is not None and torch.cuda.is_available() and device != "cpu":
+        if gpu_memory_gib <= 0:
+            raise ValueError("gpu_memory_gib must be positive")
+        if offload_folder is None:
+            raise ValueError("offload_folder is required with a GPU memory cap")
+        load_kwargs.update(
+            device_map="auto",
+            max_memory={0: f"{gpu_memory_gib}GiB", "cpu": "80GiB"},
+            offload_state_dict=True,
+            offload_folder=str(offload_folder),
+        )
+    else:
+        load_kwargs["device_map"] = (
+            device if device in {"auto", "balanced", "balanced_low_0"} else {"": device}
+        )
+    return AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs).eval()
 
 
 def load_hf_pair(
@@ -30,49 +83,29 @@ def load_hf_pair(
     *,
     low_vram: bool = False,
 ):
-    try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-    except ImportError as exc:
-        raise RuntimeError("install the HF extra: pip install -e '.[hf]'") from exc
-    torch_dtype = {
-        "bfloat16": torch.bfloat16,
-        "float16": torch.float16,
-        "float32": torch.float32,
-    }[dtype]
-    tokenizer = AutoTokenizer.from_pretrained(target_id, trust_remote_code=True)
-    draft_tokenizer = AutoTokenizer.from_pretrained(draft_id, trust_remote_code=True)
-    if _tokenizer_contract(tokenizer) != _tokenizer_contract(draft_tokenizer):
-        raise ValueError(
-            "target and draft tokenizer contracts differ; cross-model cache positions/token IDs are unsafe"
-        )
-    device_map = {"": device} if device not in {"auto", "balanced", "balanced_low_0"} else device
-    load_kwargs = {"torch_dtype": torch_dtype, "trust_remote_code": True, "low_cpu_mem_usage": True}
-    target_load_kwargs = dict(load_kwargs)
-    draft_load_kwargs = dict(load_kwargs)
+    tokenizer = load_hf_tokenizer(target_id)
+    draft_tokenizer = load_hf_tokenizer(draft_id)
+    validate_tokenizer_pair(tokenizer, draft_tokenizer)
     if low_vram and torch.cuda.is_available() and device != "cpu":
         # Keep exact BF16 weights; offload only reduces residency. This profile is
         # for smoke/feasibility runs, not for paper wall-clock gates.
-        device_map = "auto"
-        target_load_kwargs.update(
-            # Leave headroom for long-context KV, the translated cache, and
-            # temporary FP32 mapper features.  The 9 GiB cap is intentionally
-            # conservative for a 16 GiB card; this is a feasibility profile,
-            # not a throughput configuration.
-            max_memory={0: "6GiB", "cpu": "48GiB"},
-            offload_state_dict=True,
+        target = load_hf_model(
+            target_id,
+            device,
+            dtype,
+            gpu_memory_gib=6,
             offload_folder=".cache/vakv_offload_target",
         )
-        draft_load_kwargs.update(
-            max_memory={0: "4GiB", "cpu": "48GiB"},
-            offload_state_dict=True,
+        draft = load_hf_model(
+            draft_id,
+            device,
+            dtype,
+            gpu_memory_gib=4,
             offload_folder=".cache/vakv_offload_draft",
         )
-    target = AutoModelForCausalLM.from_pretrained(
-        target_id, device_map=device_map, **target_load_kwargs
-    ).eval()
-    draft = AutoModelForCausalLM.from_pretrained(
-        draft_id, device_map=device_map, **draft_load_kwargs
-    ).eval()
+    else:
+        target = load_hf_model(target_id, device, dtype)
+        draft = load_hf_model(draft_id, device, dtype)
     if target.get_input_embeddings().num_embeddings < len(tokenizer):
         raise ValueError("target embedding table does not cover the shared tokenizer")
     if draft.get_input_embeddings().num_embeddings < len(tokenizer):

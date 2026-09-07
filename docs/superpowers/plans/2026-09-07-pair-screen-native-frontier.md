@@ -145,7 +145,7 @@ git commit -m "feat: add pair-screen artifact and metric contracts"
 - Produces: `save_cache_shard(path, cache, metadata)`, `load_cache_shard(path) -> (CacheState, dict)`.
 - Consumes: Task 1 hashing and atomic manifest functions.
 
-- [ ] **Step 1: Write failing cache round-trip and manifest tests**
+- [x] **Step 1: Write failing cache round-trip and manifest tests**
 
 ```python
 def test_cache_shard_round_trip_preserves_rotary_and_content_flag(tmp_path):
@@ -163,12 +163,12 @@ def test_existing_manifest_rejects_changed_model_revision(tmp_path):
         write_or_validate_manifest(tmp_path, manifest(revision="b"))
 ```
 
-- [ ] **Step 2: Run tests and verify failure from absent shard API**
+- [x] **Step 2: Run tests and verify failure from absent shard API**
 
 Run: `.venv/bin/pytest tests/test_cache_artifacts.py tests/test_sequential_capture_contract.py -q`
 Expected: collection failure for missing modules.
 
-- [ ] **Step 3: Implement plain-tensor CacheState serialization**
+- [x] **Step 3: Implement plain-tensor CacheState serialization**
 
 ```python
 def cache_state_payload(cache, metadata):
@@ -184,7 +184,7 @@ def cache_state_payload(cache, metadata):
     }
 ```
 
-- [ ] **Step 4: Extract one-model loading from `load_hf_pair`**
+- [x] **Step 4: Extract one-model loading from `load_hf_pair`**
 
 ```python
 def load_hf_model(model_id, device, dtype="bfloat16", *, gpu_memory_gib=None, offload_folder=None):
@@ -197,19 +197,19 @@ def load_hf_model(model_id, device, dtype="bfloat16", *, gpu_memory_gib=None, of
     return tokenizer, AutoModelForCausalLM.from_pretrained(model_id, **kwargs).eval()
 ```
 
-- [ ] **Step 5: Implement the resumable calibration capture CLI**
+- [x] **Step 5: Implement the resumable calibration capture CLI**
 
 The CLI accepts `--role source|draft`, freezes token IDs under
 `PAIR_DIR/tokens`, validates the pair tokenizer contract, captures sampled cache
 states under `PAIR_DIR/source` or `PAIR_DIR/draft`, and writes a role manifest only
 after all requested shards validate.
 
-- [ ] **Step 6: Run focused tests and CLI help**
+- [x] **Step 6: Run focused tests and CLI help**
 
 Run: `.venv/bin/pytest tests/test_cache_artifacts.py tests/test_sequential_capture_contract.py -q && .venv/bin/python bench/capture_sequential_calibration.py --help >/dev/null`
 Expected: all tests and help command pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add bench/common.py bench/capture_sequential_calibration.py src/verifier_anchored_sd/cache_artifacts.py tests/test_cache_artifacts.py tests/test_sequential_capture_contract.py
