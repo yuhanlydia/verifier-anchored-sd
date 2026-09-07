@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture held-out verifier prefix KV for sequential pair screening."""
+"""Capture held-out verifier KV and next-token distributions for pair screening."""
 
 from __future__ import annotations
 
@@ -18,11 +18,17 @@ from common import (
 )
 
 from verifier_anchored_sd.cache_artifacts import (
+    exact_shard_paths,
     load_cache_shard,
     load_token_rows,
     save_cache_shard,
     save_token_rows,
     write_or_validate_manifest,
+)
+from verifier_anchored_sd.distribution_artifacts import (
+    exact_probability_paths,
+    load_probability_shard,
+    save_probability_shard,
 )
 from verifier_anchored_sd.experiment_artifacts import (
     atomic_write_json,
@@ -35,6 +41,15 @@ from verifier_anchored_sd.spec_decode.hf_runtime import forward_incremental
 
 def _input_device(model) -> torch.device:
     return model.get_input_embeddings().weight.device
+
+
+def _probability_metadata(cache_metadata: dict, vocab_size: int) -> dict:
+    return {
+        **cache_metadata,
+        "storage_dtype": "float32",
+        "temperature": 1.0,
+        "vocab_size": int(vocab_size),
+    }
 
 
 def main() -> None:
@@ -125,13 +140,22 @@ def main() -> None:
     model_info = model_metadata(target, pair["target"], tokenizer_hash)
     if model_info["revision"] != target_revision:
         raise RuntimeError("loaded verifier revision differs from mapper calibration")
+    output_embeddings = target.get_output_embeddings()
+    if output_embeddings is None:
+        raise RuntimeError("verifier does not expose an output embedding head")
+    vocab_size = int(output_embeddings.weight.shape[0])
     manifest = {
-        "schema_version": 2,
-        "role": "screen_source",
+        "schema_version": 3,
+        "role": "screen_source_with_distribution",
         "pair": pair,
         "model": model_info,
         "capture": {"count": args.prompts, "prefix_tokens": args.prefix_tokens, "stride": 1},
         "dtype": args.dtype,
+        "target_distribution": {
+            "storage_dtype": "float32",
+            "temperature": 1.0,
+            "vocab_size": vocab_size,
+        },
         "input_sha256": input_digest,
         "window_sources": token_metadata["window_sources"],
         "token_rows_digest": token_metadata["token_rows_digest"],
@@ -139,35 +163,79 @@ def main() -> None:
     }
     write_or_validate_manifest(root, manifest)
     shard_root = root / "shards"
+    probability_root = root / "target_probs"
+
     for index, row in enumerate(rows):
         prefix = row[:-1]
-        path = shard_root / f"{index:05d}.pt"
-        metadata = {
+        cache_path = shard_root / f"{index:05d}.pt"
+        probability_path = probability_root / f"{index:05d}.pt"
+        cache_metadata = {
             "sequence_id": f"{index:05d}",
             "token_digest": token_rows_digest([prefix]),
             "next_token_id": int(row[-1]),
             "model_revision": model_info["revision"],
             "dtype": args.dtype,
         }
-        if path.exists():
-            existing, existing_metadata = load_cache_shard(path)
-            if existing_metadata != metadata or existing.seq_len != args.prefix_tokens:
-                raise RuntimeError(f"existing screen shard has a different contract: {path}")
+        probability_metadata = _probability_metadata(cache_metadata, vocab_size)
+
+        cache_ok = False
+        if cache_path.exists():
+            existing, existing_metadata = load_cache_shard(cache_path)
+            if existing_metadata != cache_metadata or existing.seq_len != args.prefix_tokens:
+                raise RuntimeError(
+                    f"existing screen cache shard has a different contract: {cache_path}"
+                )
+            cache_ok = True
+            del existing
+
+        probability_ok = False
+        if probability_path.exists():
+            existing_probs, existing_probability_metadata = load_probability_shard(probability_path)
+            if existing_probability_metadata != probability_metadata:
+                raise RuntimeError(
+                    "existing target probability shard has a different contract: "
+                    f"{probability_path}"
+                )
+            if existing_probs.numel() != vocab_size:
+                raise RuntimeError(
+                    f"existing target probability vocabulary differs: {probability_path}"
+                )
+            probability_ok = True
+            del existing_probs
+
+        if cache_ok and probability_ok:
             continue
+
         ids = torch.tensor([prefix], device=_input_device(target), dtype=torch.long)
-        cache = forward_incremental(target, ids).cache
-        save_cache_shard(path, cache, metadata)
-        del cache, ids
+        out = forward_incremental(target, ids)
+        probabilities = torch.softmax(out.logits[:, -1, :].float(), dim=-1)[0]
+        if probabilities.numel() != vocab_size:
+            raise RuntimeError("verifier logits vocabulary differs from output embedding vocabulary")
+        if not cache_ok:
+            save_cache_shard(cache_path, out.cache, cache_metadata)
+        if not probability_ok:
+            save_probability_shard(probability_path, probabilities, probability_metadata)
+        del out, probabilities, ids
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         if (index + 1) % 10 == 0 or index + 1 == len(rows):
-            print(f"screen verifier shards: {index + 1}/{len(rows)}", flush=True)
+            print(f"screen verifier cache+distribution: {index + 1}/{len(rows)}", flush=True)
 
+    exact_shard_paths(shard_root, len(rows))
+    exact_probability_paths(probability_root, len(rows))
     del target
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    atomic_write_json(root / "complete.json", {"complete": True, "count": len(rows)})
+    atomic_write_json(
+        root / "complete.json",
+        {
+            "complete": True,
+            "count": len(rows),
+            "schema_version": 3,
+            "target_distribution": manifest["target_distribution"],
+        },
+    )
 
 
 if __name__ == "__main__":
@@ -177,18 +245,17 @@ if __name__ == "__main__":
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         root = Path(sys.argv[sys.argv.index("--screen-dir") + 1])
-        requested = (
-            int(sys.argv[sys.argv.index("--prompts") + 1])
-            if "--prompts" in sys.argv
-            else 128
-        )
-        completed = len(list((root / "shards").glob("*.pt")))
+        requested = int(sys.argv[sys.argv.index("--prompts") + 1]) if "--prompts" in sys.argv else 128
+        cache_completed = len(list((root / "shards").glob("*.pt")))
+        probability_completed = len(list((root / "target_probs").glob("*.pt")))
         atomic_write_json(
             root / "failure.json",
             {
                 "status": "incomplete",
                 "requested_rows": requested,
-                "completed_rows": completed,
+                "completed_cache_rows": cache_completed,
+                "completed_probability_rows": probability_completed,
+                "completed_rows": min(cache_completed, probability_completed),
                 "failure": {
                     "phase": "model_load_or_capture",
                     "type": type(exc).__name__,
