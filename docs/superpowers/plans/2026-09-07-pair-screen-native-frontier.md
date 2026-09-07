@@ -484,7 +484,7 @@ git commit -m "feat: evaluate accepted-only refresh gates"
 - Produces: `choice_nll(logits, labels, context_length) -> float` and `normalized_retention(native_accuracy, mapped_accuracy, random_floor=0.25) -> float`.
 - Consumes: the Task 4 mapped-native-frontier initialization path.
 
-- [ ] **Step 1: Write failing scoring and normalization tests**
+- [x] **Step 1: Write failing scoring and normalization tests**
 
 ```python
 def test_choice_nll_scores_only_continuation_tokens():
@@ -495,28 +495,28 @@ def test_floor_normalized_retention():
     assert normalized_retention(0.75, 0.70, random_floor=0.25) == pytest.approx(0.9)
 ```
 
-- [ ] **Step 2: Run tests and verify missing scoring behavior**
+- [x] **Step 2: Run tests and verify missing scoring behavior**
 
 Run: `.venv/bin/pytest tests/test_multiple_choice.py -q`
 Expected: missing module failure.
 
-- [ ] **Step 3: Implement teacher-forced continuation scoring**
+- [x] **Step 3: Implement teacher-forced continuation scoring**
 
 Score each HellaSwag ending twice with identical tokens: native draft context and
 mapped-history/native-frontier context. Average token NLL selects the answer. Record
 raw and floor-normalized mapped/native retention.
 
-- [ ] **Step 4: Implement CLI validation and atomic result output**
+- [x] **Step 4: Implement CLI validation and atomic result output**
 
 The CLI refuses to run unless the pair-screen JSON gate is `pass`, unless
 `--allow-failed-screen` is explicitly supplied for diagnosis.
 
-- [ ] **Step 5: Run tests and CLI help**
+- [x] **Step 5: Run tests and CLI help**
 
 Run: `.venv/bin/pytest tests/test_multiple_choice.py -q && .venv/bin/python bench/eval_mapped_hellaswag.py --help >/dev/null`
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add bench/eval_mapped_hellaswag.py src/verifier_anchored_sd/multiple_choice.py tests/test_multiple_choice.py
