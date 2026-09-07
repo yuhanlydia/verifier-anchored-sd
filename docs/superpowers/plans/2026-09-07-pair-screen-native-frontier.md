@@ -35,7 +35,7 @@
 - Produces: `sha256_file(path) -> str`, `token_rows_digest(rows) -> str`, `atomic_write_json(path, value) -> None`, `validate_disjoint(calibration_digest, evaluation_digest) -> None`.
 - Produces: `distribution_transfer_rows(native_probs, mapped_probs, next_ids=None) -> list[dict]`, `summarize_transfer(rows, samples, seed, threshold) -> dict`.
 
-- [ ] **Step 1: Write failing artifact tests**
+- [x] **Step 1: Write failing artifact tests**
 
 ```python
 def test_atomic_json_is_complete_and_digest_is_order_sensitive(tmp_path):
@@ -50,12 +50,12 @@ def test_calibration_and_evaluation_must_be_disjoint():
         validate_disjoint("same", "same")
 ```
 
-- [ ] **Step 2: Run artifact tests and verify failure from missing module**
+- [x] **Step 2: Run artifact tests and verify failure from missing module**
 
 Run: `.venv/bin/pytest tests/test_experiment_artifacts.py -q`
 Expected: collection error for `verifier_anchored_sd.experiment_artifacts`.
 
-- [ ] **Step 3: Implement deterministic hashing, atomic JSON, and disjointness**
+- [x] **Step 3: Implement deterministic hashing, atomic JSON, and disjointness**
 
 ```python
 def token_rows_digest(rows):
@@ -74,7 +74,7 @@ def atomic_write_json(path, value):
     temporary.replace(destination)
 ```
 
-- [ ] **Step 4: Write failing metric tests**
+- [x] **Step 4: Write failing metric tests**
 
 ```python
 def test_identical_distributions_have_perfect_transfer():
@@ -89,12 +89,12 @@ def test_gate_distinguishes_pass_fail_and_inconclusive():
     assert classify_transfer_gate(0.940, 0.960, 0.95) == "inconclusive"
 ```
 
-- [ ] **Step 5: Run metric tests and verify missing behavior**
+- [x] **Step 5: Run metric tests and verify missing behavior**
 
 Run: `.venv/bin/pytest tests/test_transfer_metrics.py -q`
 Expected: import or assertion failure for the new transfer functions.
 
-- [ ] **Step 6: Implement normalized TV, KL, Top-1, NLL delta, bootstrap, and gate**
+- [x] **Step 6: Implement normalized TV, KL, Top-1, NLL delta, bootstrap, and gate**
 
 ```python
 def classify_transfer_gate(ci_low, ci_high, threshold=0.95):
@@ -119,12 +119,12 @@ def _one_row(native, mapped, next_id=None):
     return row
 ```
 
-- [ ] **Step 7: Run focused and existing evaluation tests**
+- [x] **Step 7: Run focused and existing evaluation tests**
 
 Run: `.venv/bin/pytest tests/test_experiment_artifacts.py tests/test_transfer_metrics.py tests/test_evaluation_stats.py -q`
 Expected: all pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/verifier_anchored_sd/experiment_artifacts.py src/verifier_anchored_sd/transfer_metrics.py tests/test_experiment_artifacts.py tests/test_transfer_metrics.py
