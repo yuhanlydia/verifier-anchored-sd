@@ -1,4 +1,4 @@
-"""Multiple-choice scoring helpers for mapped-cache fidelity checks."""
+"""Multiple-choice scoring helpers for mapped-cache confirmation checks."""
 
 from __future__ import annotations
 
@@ -9,18 +9,27 @@ import torch.nn.functional as F
 
 
 def validate_screen_gate(screen_result: dict, *, allow_failed: bool = False) -> None:
-    """Require a completed distribution-screen pass for confirmation runs."""
-    status = screen_result.get("gate", {}).get("status")
-    if status != "pass" and not allow_failed:
+    """Require target-alignment support before confirmatory task evaluation.
+
+    Native-draft fidelity is diagnostic only.  A mapped state may differ from the
+    native draft yet still be useful for speculative decoding when it moves the
+    proposal distribution toward the verifier.  Diagnostic overrides remain
+    available explicitly through ``allow_failed``.
+    """
+    if allow_failed:
+        return
+    target_status = screen_result.get("target_alignment", {}).get("gate", {}).get("status")
+    decision = screen_result.get("decision", {}).get("status")
+    if target_status != "support" or decision != "go_sd":
         raise RuntimeError(
-            f"pair distribution screen did not pass (status={status!r}); "
+            "target alignment did not support confirmatory evaluation "
+            f"(target_status={target_status!r}, decision={decision!r}); "
             "use --allow-failed-screen only for a diagnostic run"
         )
-    if not allow_failed:
-        requested = screen_result.get("requested_rows")
-        completed = screen_result.get("completed_rows")
-        if not isinstance(requested, int) or requested <= 0 or completed != requested:
-            raise RuntimeError("pair distribution screen must be complete before confirmation")
+    requested = screen_result.get("requested_rows")
+    completed = screen_result.get("completed_rows")
+    if not isinstance(requested, int) or requested <= 0 or completed != requested:
+        raise RuntimeError("target-alignment screen must be complete before confirmation")
 
 
 def choice_nll(
