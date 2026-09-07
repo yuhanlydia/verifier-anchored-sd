@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from itertools import islice
 from pathlib import Path
+
+import torch
 
 from verifier_anchored_sd.cache_artifacts import (
     exact_shard_paths,
@@ -100,12 +103,16 @@ def main() -> None:
     atomic_write_json(
         output.with_suffix(output.suffix + ".json"),
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "git_commit": _git_commit(),
             "pair": source_manifest["pair"],
             "source_model": source_manifest["model"],
             "draft_model": draft_manifest["model"],
             "capture": source_manifest["capture"],
+            "dtype": source_manifest["dtype"],
+            "calibration_input_sha256": source_manifest["input_sha256"],
+            "source_manifest_sha256": sha256_file(pair_root / "source" / "manifest.json"),
+            "draft_manifest_sha256": sha256_file(pair_root / "draft" / "manifest.json"),
             "token_rows_digest": source_manifest["token_rows_digest"],
             "token_row_digests": source_manifest["token_row_digests"],
             "mapper": {
@@ -124,4 +131,19 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except torch.cuda.OutOfMemoryError as exc:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        output = Path(sys.argv[sys.argv.index("--output") + 1])
+        pair_dir = Path(sys.argv[sys.argv.index("--pair-dir") + 1])
+        atomic_write_json(
+            f"{output}.failure.json",
+            {
+                "status": "incomplete",
+                "pair_dir": str(pair_dir.resolve()),
+                "failure": {"phase": "mapper_fit", "type": type(exc).__name__, "message": str(exc)},
+            },
+        )
+        raise

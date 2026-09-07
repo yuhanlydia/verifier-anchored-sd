@@ -3,9 +3,11 @@
 ## Current experiment: screen the model pair first
 
 The latest protocol supersedes the old assumption that matched KV geometry alone
-makes Qwen3-4B -> Qwen3-1.7B a suitable scientific pair. Its measured mapped/native
-expected-MAL retention was only about 0.717, so it remains a stress control. The
-primary candidate is now exact-BF16 Qwen3-8B verifier -> Qwen3-4B draft.
+makes Qwen3-4B -> Qwen3-1.7B a suitable scientific pair. Its new distribution
+screen achieved only `A_transfer=0.601`, so it remains a stress control. The prior
+reported expected-MAL retention of 0.717 used an invalid autoregressive estimator
+and has been withdrawn. The primary candidate is now exact-BF16 Qwen3-8B verifier
+-> Qwen3-4B draft.
 
 The experiment order is fixed:
 
@@ -22,8 +24,8 @@ draft against itself on 128 held-out 1,024-token prefixes:
 
 ```text
 A_transfer = 1 - TV(q_draft_native, q_draft_mapped_history_native_frontier)
-pass         if bootstrap 95% CI lower bound > 0.95
-fail         if bootstrap 95% CI upper bound <= 0.95
+pass         if document-cluster bootstrap 95% CI lower bound > 0.95
+fail         if document-cluster bootstrap 95% CI upper bound <= 0.95
 inconclusive otherwise; expand to 512 prefixes
 ```
 
@@ -145,8 +147,8 @@ unsuitable as scientific evidence:
 11. E1 directly times complete native initialization instead of summing separate
     medians.
 12. E1 sweeps batches and records OOM as a capacity boundary.
-13. E2 reports both realized MAL and deterministic conditional acceptance mass with
-    paired-bootstrap confidence intervals.
+13. E2 reports both realized MAL and proposal-path conditional expected acceptance
+    with paired-bootstrap confidence intervals.
 
 **Discard pre-audit mapper checkpoints and rerun E0.**
 
@@ -371,7 +373,8 @@ wall-clock numbers with resident 24GB G0 results.
 
 ```bash
 python bench/eval_acceptance_pilot.py \
-  --mapper checkpoints/matched.pt \
+  --screen-result results/pair_screen_2026-09-07/qwen3_8b_to_4b.json \
+  --mapper artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt \
   --memory-profile 16gb \
   --text-file data/heldout_prompts.jsonl \
   --bootstrap-samples 5000 --mapper-dtype bfloat16

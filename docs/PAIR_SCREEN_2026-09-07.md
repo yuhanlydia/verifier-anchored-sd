@@ -8,12 +8,12 @@ intervals are wholly below the `A_transfer > 0.95` boundary.
 
 | Verifier -> draft | Mean `A_transfer` | Bootstrap 95% CI | P05 | Top-1 agreement | Decision |
 |---|---:|---:|---:|---:|---|
-| Qwen3-8B -> Qwen3-4B | 0.800360 | [0.766157, 0.832042] | 0.494013 | 0.8125 | fail |
-| Qwen3-4B -> Qwen3-1.7B | 0.600986 | [0.549008, 0.649657] | 0.034002 | 0.640625 | fail |
+| Qwen3-8B -> Qwen3-4B | 0.800360 | [0.765924, 0.833559] | 0.494013 | 0.8125 | fail |
+| Qwen3-4B -> Qwen3-1.7B | 0.600986 | [0.523788, 0.669038] | 0.034002 | 0.640625 | fail |
 
 Qwen3-8B -> Qwen3-4B is materially better than 4B -> 1.7B on the same prefixes:
 the paired mean difference is 0.199374 with a bootstrap 95% interval of
-[0.148097, 0.250628]. Architecture alignment helped, but it did not produce
+[0.128456, 0.280835]. Architecture alignment helped, but it did not produce
 near-lossless transfer.
 
 The preregistered consequence is:
@@ -53,10 +53,12 @@ ridge lambda = 0.01
 R² selection on 32 sequences
 ```
 
-The held-out screen used 128 independent 1,024-token prefixes. Each comparison was
+The held-out screen used 128 disjoint 1,024-token windows drawn from 53 contributing
+documents among the first 71 source records. Each comparison was
 between native draft prefill and mapped verifier history through token `t-1`
 followed by a native draft forward at frontier token `t`. The gate used 10,000
-percentile-bootstrap samples with seed 0.
+document-cluster bootstrap samples with seed 0. Resampling whole source documents
+prevents multiple windows from a long document from being counted as independent.
 
 Calibration input:
 
@@ -165,10 +167,10 @@ Machine-readable results:
 
 ```text
 results/pair_screen_2026-09-07/qwen3_8b_to_4b.json
-SHA-256 8e94dac188013b1eae35182af7675750c8026890715046c314758ad70eb6468c
+SHA-256 7906d739573cada645ea7289db922c43b6c3f5965c5dcd3802118f50055aae64
 
 results/pair_screen_2026-09-07/qwen3_4b_to_1p7b.json
-SHA-256 8be2a3e4af138d8007b24f6bf3e59950560ad5fb5850d7570bf8ebcf3af57901
+SHA-256 f49a3c2be3089ee160c220a94f6170a8ade2b2d27060686184ceffaa650d259f
 ```
 
 `artifact_inventory.json` in each pair directory records hashes for mapper,
@@ -177,6 +179,11 @@ were removed after complete result hashes were recorded because the 100GB host
 cannot retain both pairs' approximately 27GB of reconstructible caches. Frozen
 tokens, contracts, mapper checkpoints, inventories, and row-level result JSON were
 retained.
+
+The original evaluator did not record allocator peak memory inside the standalone
+result, so the migrated records preserve that field as `null` rather than inventing
+a value. Future runs record it directly. The cluster-aware intervals are wider, but
+both upper bounds remain far below 0.95 and the scientific decision is unchanged.
 
 ## Next permitted experiment
 

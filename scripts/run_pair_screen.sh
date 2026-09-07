@@ -15,6 +15,7 @@ SEQ_LEN="${SEQ_LEN:-1024}"
 PREFIX_TOKENS="${PREFIX_TOKENS:-1024}"
 STRIDE="${STRIDE:-4}"
 BOOTSTRAP_SAMPLES="${BOOTSTRAP_SAMPLES:-10000}"
+CONTEXT_PROMPTS="${CONTEXT_PROMPTS:-32}"
 PRUNE_COMPLETED_SHARDS="${PRUNE_COMPLETED_SHARDS:-1}"
 
 mkdir -p "$ARTIFACT_ROOT" "$RESULT_ROOT"
@@ -29,15 +30,88 @@ run_candidate() {
   local mapper="$ARTIFACT_ROOT/$name/mapper.pt"
   local screen_dir="$ARTIFACT_ROOT/$name/screen"
   local result="$RESULT_ROOT/$name.json"
+  local effective_prompts="$PROMPTS"
 
-  if [[ -f "$result" ]] && "$PYTHON" - "$result" "$target" "$draft" "$PROMPTS" <<'PY'
+  if [[ -f "$result" && -f "$mapper" && -f "$mapper.json" ]] && "$PYTHON" - \
+    "$result" "$mapper" "$mapper.json" "$target" "$target_revision" \
+    "$draft" "$draft_revision" "$CALIBRATION_TEXT" "$EVAL_TEXT" \
+    "$SEQUENCES" "$SEQ_LEN" "$STRIDE" "$SELECTION_SEQUENCES" \
+    "$PROMPTS" "$PREFIX_TOKENS" "$BOOTSTRAP_SAMPLES" "$CONTEXT_PROMPTS" <<'PY'
 import json
 import sys
+from pathlib import Path
 
-result = json.load(open(sys.argv[1]))
-expected_pair = {"target": sys.argv[2], "draft": sys.argv[3]}
-complete = result.get("completed_rows") == int(sys.argv[4])
-raise SystemExit(0 if complete and result.get("pair") == expected_pair else 1)
+from verifier_anchored_sd.experiment_artifacts import sha256_file
+
+(
+    result_path, mapper_path, metadata_path, target, target_revision,
+    draft, draft_revision, calibration_text, eval_text,
+    sequences, seq_len, stride, selection_sequences,
+    initial_prompts, prefix_tokens, bootstrap_samples, context_prompts,
+) = sys.argv[1:]
+result = json.loads(Path(result_path).read_text())
+metadata = json.loads(Path(metadata_path).read_text())
+protocol = result.get("protocol_contract", {})
+actual_prompts = result.get("requested_rows")
+allowed_prompts = {int(initial_prompts), 512}
+checks = [
+    result.get("completed_rows") == actual_prompts,
+    actual_prompts in allowed_prompts,
+    not (
+        actual_prompts == int(initial_prompts)
+        and int(initial_prompts) < 512
+        and result.get("gate", {}).get("status") == "inconclusive"
+    ),
+    protocol.get("pair") == {"target": target, "draft": draft},
+    protocol.get("target_revision") == target_revision,
+    protocol.get("draft_revision") == draft_revision,
+    protocol.get("dtype") == "bfloat16",
+    protocol.get("calibration_input_sha256") == sha256_file(calibration_text),
+    protocol.get("evaluation_input_sha256") == sha256_file(eval_text),
+    protocol.get("calibration_capture") == {
+        "count": int(sequences), "seq_len": int(seq_len), "stride": int(stride)
+    },
+    protocol.get("mapper") == metadata.get("mapper"),
+    metadata.get("mapper", {}).get("k") == 8,
+    metadata.get("mapper", {}).get("lambda") == 0.01,
+    metadata.get("mapper", {}).get("selection_ridge") == 0.000001,
+    metadata.get("mapper", {}).get("selection_sequences") == int(selection_sequences),
+    protocol.get("mapper_checkpoint_sha256") == sha256_file(mapper_path),
+    protocol.get("screen_capture") == {
+        "count": actual_prompts, "prefix_tokens": int(prefix_tokens), "stride": 1
+    },
+    protocol.get("prompts") == actual_prompts,
+    protocol.get("bootstrap_samples") == int(bootstrap_samples),
+    protocol.get("threshold") == 0.95,
+    protocol.get("attention_cosine") is True,
+]
+if result.get("gate", {}).get("status") == "pass":
+    base = Path(result_path)
+    for context_length in (2048, 8192):
+        diagnostic_path = base.with_name(f"{base.stem}_context{context_length}.json")
+        if not diagnostic_path.exists():
+            checks.append(False)
+            continue
+        diagnostic = json.loads(diagnostic_path.read_text())
+        diagnostic_protocol = diagnostic.get("protocol_contract", {})
+        checks.extend([
+            diagnostic.get("completed_rows") == int(context_prompts),
+            diagnostic_protocol.get("screen_capture") == {
+                "count": int(context_prompts),
+                "prefix_tokens": context_length,
+                "stride": 1,
+            },
+            all(
+                diagnostic_protocol.get(key) == protocol.get(key)
+                for key in (
+                    "pair", "target_revision", "draft_revision", "dtype",
+                    "calibration_input_sha256", "evaluation_input_sha256",
+                    "calibration_capture", "mapper", "mapper_checkpoint_sha256",
+                    "bootstrap_samples", "threshold", "attention_cosine",
+                )
+            ),
+        ])
+raise SystemExit(0 if all(checks) else 1)
 PY
   then
     echo "Reusing completed pair-screen result: $result"
@@ -66,20 +140,71 @@ PY
     --selection-sequences "$SELECTION_SEQUENCES" \
     --accumulation-device cuda --selection-layer-block 1 --fit-layer-block 4
 
-  "$PYTHON" bench/capture_screen_prefixes.py \
-    --screen-dir "$screen_dir" --mapper-metadata "$mapper.json" \
-    --text-file "$EVAL_TEXT" --prompts "$PROMPTS" \
-    --prefix-tokens "$PREFIX_TOKENS" --device cuda --dtype bfloat16 \
-    --gpu-memory-gib "$GPU_MEMORY_GIB"
+  run_screen_stage() {
+    local stage_screen="$1"
+    local stage_result="$2"
+    local stage_prompts="$3"
+    local stage_prefix="$4"
+    "$PYTHON" bench/capture_screen_prefixes.py \
+      --screen-dir "$stage_screen" --mapper-metadata "$mapper.json" \
+      --text-file "$EVAL_TEXT" --prompts "$stage_prompts" \
+      --prefix-tokens "$stage_prefix" --device cuda --dtype bfloat16 \
+      --gpu-memory-gib "$GPU_MEMORY_GIB"
 
-  "$PYTHON" bench/eval_pair_transfer.py \
-    --screen-dir "$screen_dir" --mapper "$mapper" --output "$result" \
-    --prompts "$PROMPTS" --bootstrap-samples "$BOOTSTRAP_SAMPLES" \
-    --threshold 0.95 --device cuda --mapper-device cuda --dtype bfloat16 \
-    --gpu-memory-gib "$GPU_MEMORY_GIB" --attention-cosine
+    "$PYTHON" bench/eval_pair_transfer.py \
+      --screen-dir "$stage_screen" --mapper "$mapper" --output "$stage_result" \
+      --prompts "$stage_prompts" --bootstrap-samples "$BOOTSTRAP_SAMPLES" \
+      --threshold 0.95 --device cuda --mapper-device cuda --dtype bfloat16 \
+      --gpu-memory-gib "$GPU_MEMORY_GIB" --attention-cosine
+
+    if [[ "$PRUNE_COMPLETED_SHARDS" == "1" ]]; then
+      "$PYTHON" - "$stage_screen" "$stage_prompts" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]) / "shards"
+count = int(sys.argv[2])
+paths = sorted(root.glob("*.pt"))
+if len(paths) != count or any(path.parent != root for path in paths):
+    raise RuntimeError(f"refusing to prune unexpected screen shard set: {root}")
+for path in paths:
+    path.unlink()
+root.rmdir()
+PY
+    fi
+  }
+
+  run_screen_stage "$screen_dir" "$result" "$PROMPTS" "$PREFIX_TOKENS"
+
+  local gate_status
+  gate_status="$($PYTHON - "$result" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["gate"]["status"])
+PY
+)"
+  if [[ "$gate_status" == "inconclusive" && "$PROMPTS" -lt 512 ]]; then
+    mv "$result" "$RESULT_ROOT/${name}_n${PROMPTS}.json"
+    screen_dir="$ARTIFACT_ROOT/$name/screen_n512"
+    effective_prompts=512
+    run_screen_stage "$screen_dir" "$result" 512 "$PREFIX_TOKENS"
+    gate_status="$($PYTHON - "$result" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["gate"]["status"])
+PY
+)"
+  fi
+
+  if [[ "$gate_status" == "pass" ]]; then
+    for context_length in 2048 8192; do
+      run_screen_stage \
+        "$ARTIFACT_ROOT/$name/screen_context${context_length}" \
+        "$RESULT_ROOT/${name}_context${context_length}.json" \
+        "$CONTEXT_PROMPTS" "$context_length"
+    done
+  fi
 
   "$PYTHON" - "$pair_dir" "$screen_dir" "$mapper" "$result" \
-    "$SEQUENCES" "$PROMPTS" "$PRUNE_COMPLETED_SHARDS" <<'PY'
+    "$SEQUENCES" "$effective_prompts" "$PRUNE_COMPLETED_SHARDS" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -94,16 +219,18 @@ files = [
     pair_dir / "source/complete.json",
     pair_dir / "draft/manifest.json",
     pair_dir / "draft/complete.json",
+    pair_dir / "tokens/manifest.json",
     pair_dir / "tokens.pt",
     mapper,
     Path(f"{mapper}.json"),
     screen_dir / "manifest.json",
     screen_dir / "complete.json",
+    screen_dir / "tokens/manifest.json",
     screen_dir / "tokens.pt",
     result,
 ]
 inventory = {
-    "schema_version": 1,
+    "schema_version": 2,
     "files": {
         str(path): {"bytes": path.stat().st_size, "sha256": sha256_file(path)}
         for path in files
@@ -115,7 +242,6 @@ if prune:
     for root, count in (
         (pair_dir / "source/shards", sequences),
         (pair_dir / "draft/shards", sequences),
-        (screen_dir / "shards", prompts),
     ):
         paths = sorted(root.glob("*.pt"))
         if len(paths) != count or any(path.parent != root for path in paths):

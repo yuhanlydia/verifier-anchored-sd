@@ -3,9 +3,10 @@
 ## Purpose
 
 The current Qwen3-4B verifier to Qwen3-1.7B draft result cannot isolate the
-scientific value of verifier refresh because mapped initialization retains only
-0.7166 of Native SD expected accepted length. The next experiment must first find
-a verifier-to-draft pair whose mapped cache preserves the draft's own behavior,
+scientific value of verifier refresh because its new distribution screen gives
+only `A_transfer=0.601`. The earlier 0.7166 expected-acceptance retention estimate
+used an invalid autoregressive overlap product and is withdrawn. The next experiment
+must first find a verifier-to-draft pair whose mapped cache preserves the draft's own behavior,
 then test refresh without replacing the causal frontier that produced the next
 draft logits.
 
@@ -98,7 +99,7 @@ The primary per-prefix transfer score is
 
 The screen records:
 
-- mean `A_transfer` with a percentile-bootstrap 95% confidence interval;
+- mean `A_transfer` with a source-document-cluster bootstrap 95% confidence interval;
 - median, fifth percentile, and minimum `A_transfer`;
 - `KL(q_native || q_mapped)` with probabilities clamped before logarithms;
 - native-versus-mapped top-1 agreement;
@@ -107,13 +108,14 @@ The screen records:
   frontier, as a diagnostic rather than a gate;
 - peak GPU memory, elapsed time, model revisions, and all artifact hashes.
 
-The primary screen uses 128 independent 1,024-token prefixes. If it passes, the
+The primary screen uses 128 disjoint 1,024-token windows and records their source
+document IDs. Bootstrap resampling treats the document as the independent unit. If it passes, the
 same implementation runs a context-stability diagnostic on 32 prefixes at 2,048
 and 8,192 tokens. OOM is recorded per length without discarding completed rows.
 
 ### Pair-screen decision
 
-- **Pass:** bootstrap 95% CI lower bound for mean `A_transfer` is greater than 0.95.
+- **Pass:** document-cluster bootstrap 95% CI lower bound for mean `A_transfer` is greater than 0.95.
 - **Fail:** bootstrap 95% CI upper bound is at most 0.95.
 - **Inconclusive:** the interval crosses 0.95; expand the held-out screen to 512
   prefixes before making a pair decision.

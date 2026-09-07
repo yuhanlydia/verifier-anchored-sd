@@ -4,11 +4,20 @@
 
 This run is a **NO-GO** for Phase 2 under the preregistered gates.
 
+**Post-review correction (2026-09-07):** the reported “expected MAL” multiplied
+distribution overlaps along a sampled autoregressive path. That statistic is
+invalid because later distributions depend on earlier sampled tokens. All expected
+MAL values, confidence intervals, and gates below are withdrawn. The realized MAL
+measurements remain descriptive: mapped/native realized retention was about 0.712,
+and Refresh minus Init-only realized MAL was -0.189524 with 95% CI
+[-0.275639, -0.102418]. The later pair screen independently rejects this mapper at
+`A_transfer=0.601`, so the no-go decision remains unchanged.
+
 - G0 could not be evaluated at the required 4K/8K resident points because batch 1
   was already OOM. At 512/1K/2K, the directly timed bridge speedup was about 1.26x.
-- G1 failed: mapped Init-only expected-MAL retention was 0.716625, below 0.80.
-- G2 failed in the opposite direction: Refresh minus Init-only expected MAL was
-  -0.199519, paired-bootstrap 95% CI [-0.249085, -0.149204].
+- The original G1/G2 expected-MAL calculations are invalid and withdrawn.
+- Realized mapped/native MAL retention was about 0.712, and the realized Refresh
+  minus Init-only interval was wholly negative.
 - Phase 2 was not run.
 
 ## Code and environment
@@ -116,7 +125,7 @@ Capacity boundary:
 
 Aggregate results:
 
-| Method | Expected MAL | Realized MAL | Acceptance rate | Tokens/s |
+| Method | Invalid old expected MAL | Realized MAL | Acceptance rate | Tokens/s |
 |---|---:|---:|---:|---:|
 | Native SD | 2.082077 | 2.106303 | 0.526576 | 5.176404 |
 | Ridge Init-only | 1.492069 | 1.499546 | 0.374887 | 4.054573 |
@@ -126,15 +135,15 @@ Paired results:
 
 | Contrast | Mean difference | 95% CI |
 |---|---:|---:|
-| Refresh - Init, expected MAL | -0.199519 | [-0.249085, -0.149204] |
+| Refresh - Init, invalid old expected MAL | -0.199519 | [-0.249085, -0.149204] |
 | Refresh - Init, realized MAL | -0.189524 | [-0.275639, -0.102418] |
 | Refresh - Native, tokens/s | -1.604604 | [-1.826336, -1.385082] |
 
 ## Gate decision
 
-The mapper misses G1, and G2 is not merely inconclusive: both deterministic and
-realized paired intervals are entirely below zero. Under the preregistered protocol,
-do not run Phase 2 or the optional long-generation drift curve from this checkpoint.
+The expected-MAL gates cannot be interpreted. The realized paired interval is below
+zero, and the later distribution screen rejects the mapper. Do not run Phase 2 or
+the optional long-generation drift curve from this checkpoint.
 
 Raw records:
 

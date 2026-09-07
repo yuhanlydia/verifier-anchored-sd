@@ -7,6 +7,7 @@ set -euo pipefail
 
 PYTHON="${PYTHON:-.venv/bin/python}"
 OUTPUT="${OUTPUT:-results/e2_native_frontier.json}"
+MAPPER_METADATA="${MAPPER_METADATA:-${MAPPER}.json}"
 PROMPTS="${PROMPTS:-64}"
 PROMPT_TOKENS="${PROMPT_TOKENS:-512}"
 NEW_TOKENS="${NEW_TOKENS:-64}"
@@ -32,7 +33,9 @@ PY
 )
 
 "$PYTHON" bench/eval_acceptance_pilot.py \
-  --mapper "$MAPPER" --target "${PAIR[0]}" --draft "${PAIR[1]}" \
+  --screen-result "$SCREEN_RESULT" --mapper "$MAPPER" \
+  --mapper-metadata "$MAPPER_METADATA" \
+  --target "${PAIR[0]}" --draft "${PAIR[1]}" \
   --text-file "$EVAL_TEXT" --prompts "$PROMPTS" \
   --prompt-tokens "$PROMPT_TOKENS" --new-tokens "$NEW_TOKENS" --gamma 4 \
   --bootstrap-samples 10000 --device cuda --dtype bfloat16 \

@@ -38,6 +38,14 @@ def test_nonfinite_probabilities_are_rejected():
         )
 
 
+def test_non_normalized_probability_rows_are_rejected():
+    with pytest.raises(ValueError, match="sum to one"):
+        distribution_transfer_rows(
+            torch.tensor([[0.25, 0.25]]),
+            torch.tensor([[0.5, 0.5]]),
+        )
+
+
 def test_gate_distinguishes_pass_fail_and_inconclusive():
     assert classify_transfer_gate(0.951, 0.970, threshold=0.95) == "pass"
     assert classify_transfer_gate(0.920, 0.950, threshold=0.95) == "fail"
@@ -53,3 +61,39 @@ def test_summary_reports_incomplete_before_scientific_gate():
 
     assert result["gate"]["status"] == "incomplete"
     assert result["completed_rows"] == 1
+
+
+def test_summary_cluster_bootstrap_reports_independent_documents():
+    rows = [
+        {"a_transfer": 0.2, "kl_native_mapped": 1.0, "top1_agreement": 0},
+        {"a_transfer": 0.4, "kl_native_mapped": 1.0, "top1_agreement": 0},
+        {"a_transfer": 0.8, "kl_native_mapped": 0.1, "top1_agreement": 1},
+    ]
+
+    result = summarize_transfer(
+        rows,
+        requested=3,
+        samples=100,
+        seed=0,
+        cluster_ids=[0, 0, 1],
+    )
+
+    assert result["independent_clusters"] == 2
+
+
+def test_one_cluster_bootstrap_collapses_to_observed_mean():
+    rows = [
+        {"a_transfer": 0.2, "kl_native_mapped": 1.0, "top1_agreement": 0},
+        {"a_transfer": 0.4, "kl_native_mapped": 1.0, "top1_agreement": 0},
+    ]
+
+    result = summarize_transfer(
+        rows,
+        requested=2,
+        samples=100,
+        seed=0,
+        cluster_ids=[7, 7],
+    )
+
+    assert result["gate"]["ci_low"] == pytest.approx(0.3)
+    assert result["gate"]["ci_high"] == pytest.approx(0.3)

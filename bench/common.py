@@ -11,7 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch
 
-from verifier_anchored_sd.experiment_data import token_windows  # noqa: F401
+from verifier_anchored_sd.experiment_data import (  # noqa: F401
+    token_windows,
+    token_windows_with_sources,
+)
 from verifier_anchored_sd.model_contracts import validate_tokenizer_pair
 
 
@@ -83,9 +86,11 @@ def load_hf_pair(
     dtype: str = "bfloat16",
     *,
     low_vram: bool = False,
+    target_revision: str = "main",
+    draft_revision: str = "main",
 ):
-    tokenizer = load_hf_tokenizer(target_id)
-    draft_tokenizer = load_hf_tokenizer(draft_id)
+    tokenizer = load_hf_tokenizer(target_id, revision=target_revision)
+    draft_tokenizer = load_hf_tokenizer(draft_id, revision=draft_revision)
     validate_tokenizer_pair(tokenizer, draft_tokenizer)
     if low_vram and torch.cuda.is_available() and device != "cpu":
         # Keep exact BF16 weights; offload only reduces residency. This profile is
@@ -94,6 +99,7 @@ def load_hf_pair(
             target_id,
             device,
             dtype,
+            revision=target_revision,
             gpu_memory_gib=6,
             offload_folder=".cache/vakv_offload_target",
         )
@@ -101,12 +107,13 @@ def load_hf_pair(
             draft_id,
             device,
             dtype,
+            revision=draft_revision,
             gpu_memory_gib=4,
             offload_folder=".cache/vakv_offload_draft",
         )
     else:
-        target = load_hf_model(target_id, device, dtype)
-        draft = load_hf_model(draft_id, device, dtype)
+        target = load_hf_model(target_id, device, dtype, revision=target_revision)
+        draft = load_hf_model(draft_id, device, dtype, revision=draft_revision)
     if target.get_input_embeddings().num_embeddings < len(tokenizer):
         raise ValueError("target embedding table does not cover the shared tokenizer")
     if draft.get_input_embeddings().num_embeddings < len(tokenizer):

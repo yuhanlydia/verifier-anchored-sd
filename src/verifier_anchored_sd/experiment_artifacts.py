@@ -62,3 +62,9 @@ def validate_no_row_overlap(
     overlap = calibration & evaluation
     if overlap:
         raise ValueError(f"calibration/evaluation token-window overlap detected: {sorted(overlap)}")
+
+
+def validate_protocol_contract(result: dict, expected: dict) -> None:
+    """Reject reuse unless a completed result matches the full run contract."""
+    if result.get("protocol_contract") != expected:
+        raise RuntimeError("completed result uses a different protocol contract")

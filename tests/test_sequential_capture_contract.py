@@ -16,7 +16,9 @@ class FakeTokenizer:
         return self._vocab
 
 
-def manifest(*, role: str, token_digest: str = "tokens", revision: str = "rev"):
+def manifest(
+    *, role: str, token_digest: str = "tokens", revision: str = "rev", dtype: str = "bfloat16"
+):
     return {
         "schema_version": 1,
         "role": role,
@@ -30,6 +32,7 @@ def manifest(*, role: str, token_digest: str = "tokens", revision: str = "rev"):
             "head_dim": 4,
         },
         "capture": {"count": 3, "seq_len": 16, "stride": 2},
+        "dtype": dtype,
         "token_rows_digest": token_digest,
     }
 
@@ -51,6 +54,14 @@ def test_capture_pair_rejects_different_token_windows():
 def test_capture_pair_rejects_role_reversal():
     with pytest.raises(ValueError, match="roles"):
         validate_capture_pair(manifest(role="draft"), manifest(role="source"))
+
+
+def test_capture_pair_rejects_different_dtypes():
+    with pytest.raises(ValueError, match="dtype"):
+        validate_capture_pair(
+            manifest(role="source", dtype="bfloat16"),
+            manifest(role="draft", dtype="float16"),
+        )
 
 
 def test_tokenizer_hash_is_stable_across_vocab_insertion_order():

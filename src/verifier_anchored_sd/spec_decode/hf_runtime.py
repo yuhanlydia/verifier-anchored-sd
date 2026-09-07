@@ -107,6 +107,13 @@ class Forward:
     cache: CacheState
 
 
+def complete_incremental_forward(history: CacheState, step: Forward) -> Forward:
+    """Return a forward whose cache contains prior history and the new step."""
+    complete = history.clone()
+    complete.append(step.cache)
+    return Forward(step.logits, complete)
+
+
 def forward_incremental(
     model,
     input_ids: torch.Tensor,
@@ -345,7 +352,13 @@ class QwenPairRuntime:
         while len(output) < max_new_tokens:
             proposal = self.propose(gamma)
             self.expected_accepted_lengths.append(
-                float(expected_accepted_length(proposal.target_probs, proposal.draft_probs))
+                float(
+                    expected_accepted_length(
+                        proposal.target_probs,
+                        proposal.draft_probs,
+                        proposal.token_ids,
+                    )
+                )
             )
             from .exact_sd import choose_frontier_token, exact_spec_accept
 

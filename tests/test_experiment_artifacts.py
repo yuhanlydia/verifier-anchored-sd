@@ -7,6 +7,7 @@ from verifier_anchored_sd.experiment_artifacts import (
     token_rows_digest,
     validate_disjoint,
     validate_no_row_overlap,
+    validate_protocol_contract,
 )
 
 
@@ -39,3 +40,11 @@ def test_partial_token_window_overlap_is_rejected():
         validate_no_row_overlap(["cal-a", "shared"], ["shared", "eval-b"])
 
     validate_no_row_overlap(["cal-a"], ["eval-b"])
+
+
+def test_protocol_contract_requires_exact_match():
+    result = {"protocol_contract": {"input": "sha", "prompts": 128}}
+
+    validate_protocol_contract(result, {"input": "sha", "prompts": 128})
+    with pytest.raises(RuntimeError, match="protocol"):
+        validate_protocol_contract(result, {"input": "other", "prompts": 128})

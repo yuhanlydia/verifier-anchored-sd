@@ -168,6 +168,8 @@ def validate_capture_pair(source: dict, draft: dict) -> dict[str, int]:
         raise ValueError("source and draft captures describe different model pairs")
     if source.get("capture") != draft.get("capture"):
         raise ValueError("source and draft captures use different capture parameters")
+    if source.get("dtype") != draft.get("dtype"):
+        raise ValueError("source and draft captures use different dtype contracts")
     if source.get("token_rows_digest") != draft.get("token_rows_digest"):
         raise ValueError("source and draft captures use different token windows")
     source_model, draft_model = source.get("model", {}), draft.get("model", {})

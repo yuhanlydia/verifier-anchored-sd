@@ -13,6 +13,7 @@ def mapper_metadata():
         "pair": {"target": "Qwen/T", "draft": "Qwen/D"},
         "source_model": {"revision": "target-rev", "tokenizer_hash": "tok"},
         "draft_model": {"revision": "draft-rev", "tokenizer_hash": "tok"},
+        "dtype": "bfloat16",
         "token_row_digests": ["cal-a", "cal-b"],
     }
 
@@ -21,6 +22,7 @@ def screen_manifest():
     return {
         "pair": {"target": "Qwen/T", "draft": "Qwen/D"},
         "model": {"revision": "target-rev", "tokenizer_hash": "tok"},
+        "dtype": "bfloat16",
         "token_row_digests": ["eval-a", "eval-b"],
     }
 
@@ -32,6 +34,11 @@ def test_screen_inputs_validate_pair_revision_tokenizer_and_disjointness():
     overlap["token_row_digests"] = ["eval-a", "cal-b"]
     with pytest.raises(ValueError, match="overlap"):
         validate_screen_inputs(mapper_metadata(), overlap)
+
+    different_dtype = screen_manifest()
+    different_dtype["dtype"] = "float16"
+    with pytest.raises(ValueError, match="dtype"):
+        validate_screen_inputs(mapper_metadata(), different_dtype)
 
 
 def test_screen_cannot_pass_with_missing_rows():

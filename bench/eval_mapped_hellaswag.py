@@ -8,6 +8,7 @@ import gc
 import hashlib
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from verifier_anchored_sd.multiple_choice import (
 from verifier_anchored_sd.spec_decode.hf_runtime import (
     Forward,
     capture_rotary_factors,
+    complete_incremental_forward,
     forward_incremental,
 )
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
@@ -146,7 +148,8 @@ def _mapped_context(
     )
     mapped_history = mapper.map(source_history, draft_rotary=rotary)
     frontier = torch.tensor([[context_ids[-1]]], device=input_device, dtype=torch.long)
-    return forward_incremental(draft, frontier, mapped_history)
+    step = forward_incremental(draft, frontier, mapped_history)
+    return complete_incremental_forward(mapped_history, step)
 
 
 def main() -> None:
@@ -175,10 +178,19 @@ def main() -> None:
     mapper_path = Path(args.mapper)
     metadata_path = Path(args.mapper_metadata or f"{mapper_path}.json")
     mapper_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    if sha256_file(mapper_path) != mapper_metadata["checkpoint_sha256"]:
+    if args.dtype != mapper_metadata.get("dtype"):
+        raise RuntimeError("HellaSwag dtype differs from mapper calibration")
+    mapper_sha = sha256_file(mapper_path)
+    if mapper_sha != mapper_metadata["checkpoint_sha256"]:
         raise RuntimeError("mapper checkpoint digest differs from its metadata")
     if screen_result.get("pair") != mapper_metadata["pair"]:
         raise RuntimeError("screen result and mapper describe different pairs")
+    if screen_result.get("mapper_checkpoint_sha256") != mapper_sha:
+        raise RuntimeError("screen result is not bound to this mapper checkpoint")
+    if screen_result.get("source_model") != mapper_metadata["source_model"]:
+        raise RuntimeError("screen verifier differs from mapper metadata")
+    if screen_result.get("draft_model") != mapper_metadata["draft_model"]:
+        raise RuntimeError("screen draft differs from mapper metadata")
 
     pair = mapper_metadata["pair"]
     target_revision = mapper_metadata["source_model"]["revision"]
@@ -198,12 +210,14 @@ def main() -> None:
         tokenizer_hash,
     )
     capture_contract = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": "hellaswag_source",
         "pair": pair,
         "model": mapper_metadata["source_model"],
         "examples": args.examples,
         "examples_digest": examples_digest,
+        "dtype": args.dtype,
+        "dataset": sha256_file(args.data_file) if args.data_file else "Rowan/hellaswag:validation",
     }
     write_or_validate_manifest(artifact_root, capture_contract)
 
@@ -238,6 +252,7 @@ def main() -> None:
                     "sequence_id": f"{index:05d}",
                     "context_digest": _json_digest(context_ids),
                     "model_revision": target_revision,
+                    "dtype": args.dtype,
                 },
             )
             del ids, cache
@@ -267,52 +282,129 @@ def main() -> None:
     )
     input_device = draft.get_input_embeddings().weight.device
 
+    protocol_contract = {
+        "pair": pair,
+        "target_revision": target_revision,
+        "draft_revision": draft_revision,
+        "dtype": args.dtype,
+        "screen_result_sha256": sha256_file(args.screen_result),
+        "mapper_metadata_sha256": sha256_file(metadata_path),
+        "mapper_checkpoint_sha256": mapper_sha,
+        "dataset": capture_contract["dataset"],
+        "examples": args.examples,
+        "examples_digest": examples_digest,
+    }
+    progress_path = Path(f"{args.output}.progress.json")
     rows = []
-    for index, example in enumerate(examples):
-        source_cache, shard_metadata = load_cache_shard(
-            shard_root / f"{index:05d}.pt"
-        )
-        if shard_metadata["context_digest"] != _json_digest(example["context_ids"]):
-            raise RuntimeError(f"HellaSwag context shard mismatch at row {index}")
-        context = torch.tensor(
-            [example["context_ids"]], device=input_device, dtype=torch.long
-        )
-        native = forward_incremental(draft, context)
-        mapped = _mapped_context(
-            draft, mapper, source_cache, example["context_ids"], map_dtype
-        )
-        native_scores = [
-            _score_ending(draft, native, ending) for ending in example["ending_ids"]
-        ]
-        mapped_scores = [
-            _score_ending(draft, mapped, ending) for ending in example["ending_ids"]
-        ]
-        rows.append(
-            {
-                "example": index,
-                "label": example["label"],
-                "native_prediction": min(range(4), key=native_scores.__getitem__),
-                "mapped_prediction": min(range(4), key=mapped_scores.__getitem__),
-                "native_choice_nll": native_scores,
-                "mapped_choice_nll": mapped_scores,
+    if progress_path.exists():
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))
+        if progress.get("protocol_contract") != protocol_contract:
+            raise RuntimeError("HellaSwag progress uses a different protocol contract")
+        rows = progress.get("rows", [])
+        if not isinstance(rows, list):
+            raise RuntimeError("invalid HellaSwag progress rows")
+    completed = {int(row["example"]) for row in rows}
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    try:
+        for index, example in enumerate(examples):
+            if index in completed:
+                continue
+            source_cache, shard_metadata = load_cache_shard(
+                shard_root / f"{index:05d}.pt"
+            )
+            expected_shard_metadata = {
+                "sequence_id": f"{index:05d}",
+                "context_digest": _json_digest(example["context_ids"]),
+                "model_revision": target_revision,
+                "dtype": args.dtype,
             }
+            if shard_metadata != expected_shard_metadata:
+                raise RuntimeError(f"HellaSwag context shard mismatch at row {index}")
+            context = torch.tensor(
+                [example["context_ids"]], device=input_device, dtype=torch.long
+            )
+            native = forward_incremental(draft, context)
+            mapped = _mapped_context(
+                draft, mapper, source_cache, example["context_ids"], map_dtype
+            )
+            native_scores = [
+                _score_ending(draft, native, ending) for ending in example["ending_ids"]
+            ]
+            mapped_scores = [
+                _score_ending(draft, mapped, ending) for ending in example["ending_ids"]
+            ]
+            rows.append(
+                {
+                    "example": index,
+                    "label": example["label"],
+                    "native_prediction": min(range(4), key=native_scores.__getitem__),
+                    "mapped_prediction": min(range(4), key=mapped_scores.__getitem__),
+                    "native_choice_nll": native_scores,
+                    "mapped_choice_nll": mapped_scores,
+                }
+            )
+            atomic_write_json(
+                progress_path,
+                {
+                    "schema_version": 1,
+                    "protocol_contract": protocol_contract,
+                    "rows": rows,
+                },
+            )
+            del source_cache, context, native, mapped
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if (index + 1) % 10 == 0 or index + 1 == args.examples:
+                print(f"HellaSwag scored: {index + 1}/{args.examples}", flush=True)
+    except torch.cuda.OutOfMemoryError as exc:
+        atomic_write_json(
+            args.output,
+            {
+                "schema_version": 2,
+                "experiment": "mapped_hellaswag_confirmation",
+                "status": "incomplete",
+                "protocol_contract": protocol_contract,
+                "requested_rows": args.examples,
+                "completed_rows": len(rows),
+                "failure": {"phase": "scoring", "type": type(exc).__name__, "message": str(exc)},
+                "rows": rows,
+            },
         )
-        del source_cache, context, native, mapped
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        if (index + 1) % 10 == 0 or index + 1 == args.examples:
-            print(f"HellaSwag scored: {index + 1}/{args.examples}", flush=True)
+        raise
+
+    if len(rows) != args.examples:
+        raise RuntimeError("HellaSwag did not complete every requested example")
 
     native_accuracy = sum(row["native_prediction"] == row["label"] for row in rows) / len(rows)
     mapped_accuracy = sum(row["mapped_prediction"] == row["label"] for row in rows) / len(rows)
     retention = normalized_retention(native_accuracy, mapped_accuracy, random_floor=0.25)
     result = {
-        "schema_version": 1,
+        "schema_version": 2,
         "experiment": "mapped_hellaswag_confirmation",
         "git_commit": _git_commit(),
+        "status": "complete",
+        "config": vars(args),
+        "protocol_contract": protocol_contract,
         "pair": pair,
         "screen_result": str(Path(args.screen_result).resolve()),
+        "screen_result_sha256": sha256_file(args.screen_result),
         "screen_gate": screen_result["gate"],
+        "mapper_checkpoint_sha256": mapper_sha,
+        "mapper_metadata_sha256": sha256_file(metadata_path),
+        "source_model": mapper_metadata["source_model"],
+        "draft_model": mapper_metadata["draft_model"],
+        "tokenizer_hash": tokenizer_hash,
+        "dtype": args.dtype,
+        "dataset": capture_contract["dataset"],
+        "hardware": {
+            "gpu": torch.cuda.get_device_name() if torch.cuda.is_available() else None,
+            "torch": torch.__version__,
+            "cuda": torch.version.cuda,
+            "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated() if torch.cuda.is_available() else None,
+        },
         "diagnostic_override": bool(args.allow_failed_screen),
         "examples": args.examples,
         "examples_digest": examples_digest,
@@ -325,8 +417,35 @@ def main() -> None:
         "rows": rows,
     }
     atomic_write_json(args.output, result)
+    progress_path.unlink(missing_ok=True)
     print(json.dumps({"native_accuracy": native_accuracy, "mapped_accuracy": mapped_accuracy, "floor_normalized_retention": retention, "gate": result["gate"]}, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except torch.cuda.OutOfMemoryError as exc:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        output = Path(sys.argv[sys.argv.index("--output") + 1])
+        artifact_root = Path(sys.argv[sys.argv.index("--artifact-dir") + 1])
+        requested = (
+            int(sys.argv[sys.argv.index("--examples") + 1])
+            if "--examples" in sys.argv
+            else 1000
+        )
+        progress_path = Path(f"{output}.progress.json")
+        completed = 0
+        if progress_path.exists():
+            completed = len(json.loads(progress_path.read_text()).get("rows", []))
+        atomic_write_json(
+            f"{output}.failure.json",
+            {
+                "status": "incomplete",
+                "artifact_dir": str(artifact_root.resolve()),
+                "requested_rows": requested,
+                "completed_rows": completed,
+                "failure": {"phase": "startup_or_scoring", "type": type(exc).__name__, "message": str(exc)},
+            },
+        )
+        raise

@@ -6,10 +6,16 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import sys
 from pathlib import Path
 
 import torch
-from common import iter_texts, load_hf_model, load_hf_tokenizer, token_windows
+from common import (
+    iter_texts,
+    load_hf_model,
+    load_hf_tokenizer,
+    token_windows_with_sources,
+)
 
 from verifier_anchored_sd.cache_artifacts import (
     load_cache_shard,
@@ -48,6 +54,8 @@ def main() -> None:
         raise ValueError("prompts must be positive and prefix-tokens must exceed one")
 
     mapper_metadata = json.loads(Path(args.mapper_metadata).read_text(encoding="utf-8"))
+    if args.dtype != mapper_metadata.get("dtype"):
+        raise RuntimeError("screen dtype differs from mapper calibration")
     pair = mapper_metadata["pair"]
     target_revision = mapper_metadata["source_model"]["revision"]
     draft_revision = mapper_metadata["draft_model"]["revision"]
@@ -64,7 +72,7 @@ def main() -> None:
         rows, token_metadata = load_token_rows(token_path)
     else:
         windows = list(
-            token_windows(
+            token_windows_with_sources(
                 source_tokenizer,
                 iter_texts(args.text_file, limit=max(args.prompts * 8, args.prompts)),
                 seq_len=args.prefix_tokens + 1,
@@ -73,10 +81,14 @@ def main() -> None:
         )
         if len(windows) != args.prompts:
             raise RuntimeError(f"only {len(windows)}/{args.prompts} held-out windows were available")
-        rows = [[int(token) for token in window.tolist()] for window in windows]
+        rows = [[int(token) for token in window.token_ids.tolist()] for window in windows]
         prefix_rows = [row[:-1] for row in rows]
+        window_sources = [
+            {"document_id": window.document_id, "chunk_id": window.chunk_id}
+            for window in windows
+        ]
         token_metadata = {
-            "schema_version": 1,
+            "schema_version": 2,
             "pair": pair,
             "input_sha256": input_digest,
             "count": args.prompts,
@@ -84,10 +96,11 @@ def main() -> None:
             "tokenizer_hash": tokenizer_hash,
             "token_rows_digest": token_rows_digest(prefix_rows),
             "token_row_digests": [token_rows_digest([row]) for row in prefix_rows],
+            "window_sources": window_sources,
         }
         save_token_rows(token_path, rows, token_metadata)
     expected_token_metadata = {
-        "schema_version": 1,
+        "schema_version": 2,
         "pair": pair,
         "input_sha256": input_digest,
         "count": args.prompts,
@@ -95,6 +108,7 @@ def main() -> None:
         "tokenizer_hash": tokenizer_hash,
         "token_rows_digest": token_rows_digest([row[:-1] for row in rows]),
         "token_row_digests": [token_rows_digest([row[:-1]]) for row in rows],
+        "window_sources": token_metadata.get("window_sources"),
     }
     if token_metadata != expected_token_metadata:
         raise RuntimeError(f"frozen screen tokens use a different contract: {token_path}")
@@ -112,11 +126,14 @@ def main() -> None:
     if model_info["revision"] != target_revision:
         raise RuntimeError("loaded verifier revision differs from mapper calibration")
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": "screen_source",
         "pair": pair,
         "model": model_info,
         "capture": {"count": args.prompts, "prefix_tokens": args.prefix_tokens, "stride": 1},
+        "dtype": args.dtype,
+        "input_sha256": input_digest,
+        "window_sources": token_metadata["window_sources"],
         "token_rows_digest": token_metadata["token_rows_digest"],
         "token_row_digests": token_metadata["token_row_digests"],
     }
@@ -130,6 +147,7 @@ def main() -> None:
             "token_digest": token_rows_digest([prefix]),
             "next_token_id": int(row[-1]),
             "model_revision": model_info["revision"],
+            "dtype": args.dtype,
         }
         if path.exists():
             existing, existing_metadata = load_cache_shard(path)
@@ -153,4 +171,29 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except torch.cuda.OutOfMemoryError as exc:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        root = Path(sys.argv[sys.argv.index("--screen-dir") + 1])
+        requested = (
+            int(sys.argv[sys.argv.index("--prompts") + 1])
+            if "--prompts" in sys.argv
+            else 128
+        )
+        completed = len(list((root / "shards").glob("*.pt")))
+        atomic_write_json(
+            root / "failure.json",
+            {
+                "status": "incomplete",
+                "requested_rows": requested,
+                "completed_rows": completed,
+                "failure": {
+                    "phase": "model_load_or_capture",
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            },
+        )
+        raise

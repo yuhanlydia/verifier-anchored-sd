@@ -73,10 +73,12 @@ Refresh > Init-only has the **right sign**, and the pending-frontier path comple
 without an exception. It is still only an integration signal: `N=1`, the mapper is
 non-paper, and realized MAL is stochastic.
 
-The current E2 therefore adds conditional expected accepted length
-`sum_j prod_{i<=j}(1-TV(p_i,q_i))` and a paired bootstrap on identical held-out
-prompts. The 16GB kill test uses 64 independent prompts x 64 generated tokens; the
-24GB confirmatory run uses 200 prompts x 512 generated tokens.
+The corrected E2 computes conditional expected accepted length for each sampled
+proposal path as `sum_j prod_{i<=j} min(1,p_i(x_i)/q_i(x_i))`, then averages those
+path estimates and applies a paired bootstrap on identical held-out prompts. The
+16GB kill test uses 64 independent prompts x 64 generated tokens; the 24GB
+confirmatory run uses 200 prompts x 512 generated tokens. Earlier overlap-product
+values were invalid for an autoregressive sampled path and must not be reused.
 
 ## Current decision
 

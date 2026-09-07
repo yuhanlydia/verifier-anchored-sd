@@ -3,9 +3,11 @@
 ## Evidence boundary
 
 The completed Qwen3-4B verifier -> Qwen3-1.7B run is a negative pair-quality
-result. Its mapped/native expected-MAL retention was approximately 0.717 and the
-legacy full-refresh delta was negative. Those measurements cannot distinguish a
-bad model pair from a bad refresh principle, so 4B -> 1.7B is now a stress control.
+result. Its new distribution screen reached only `A_transfer=0.601`; the old
+reported expected-MAL retention of 0.717 used an invalid autoregressive estimator
+and is withdrawn. The old realized refresh delta was negative, but it cannot
+distinguish a bad model pair from a bad refresh principle, so 4B -> 1.7B is now a
+stress control.
 
 The next primary candidate is Qwen3-8B verifier -> Qwen3-4B draft. Both have 36
 layers, 8 KV heads, head dimension 128, the same tokenizer vocabulary, and the same
@@ -47,7 +49,8 @@ manifest.
 
 ## E1: distribution transfer screen
 
-The primary screen uses 128 disjoint 1,024-token prefixes. For each prefix it
+The primary screen uses 128 disjoint 1,024-token windows. It records the source
+document for every window and resamples whole documents in the bootstrap. For each prefix it
 computes:
 
 ```text
@@ -66,8 +69,8 @@ The gate is preregistered:
 
 ```text
 A_transfer = 1 - TV(q_native, q_mapped)
-pass:         bootstrap 95% CI lower bound > 0.95
-fail:         bootstrap 95% CI upper bound <= 0.95
+pass:         document-cluster bootstrap 95% CI lower bound > 0.95
+fail:         document-cluster bootstrap 95% CI upper bound <= 0.95
 inconclusive: interval crosses 0.95; expand to 512 prefixes
 ```
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import sys
 from pathlib import Path
 
 import torch
@@ -12,7 +13,7 @@ from common import (
     iter_texts,
     load_hf_model,
     load_hf_tokenizer,
-    token_windows,
+    token_windows_with_sources,
 )
 
 from verifier_anchored_sd.cache_artifacts import (
@@ -45,9 +46,9 @@ def _input_device(model) -> torch.device:
     raise RuntimeError("model has no materialized input device")
 
 
-def _token_contract(args, tokenizer_hash: str, input_digest: str, rows) -> dict:
+def _token_contract(args, tokenizer_hash: str, input_digest: str, rows, sources) -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "pair": {"target": args.target, "draft": args.draft},
         "requested_revisions": {
             "target": args.target_revision,
@@ -59,6 +60,7 @@ def _token_contract(args, tokenizer_hash: str, input_digest: str, rows) -> dict:
         "tokenizer_hash": tokenizer_hash,
         "token_rows_digest": token_rows_digest(rows),
         "token_row_digests": [token_rows_digest([row]) for row in rows],
+        "window_sources": sources,
     }
 
 
@@ -68,14 +70,16 @@ def _load_or_freeze_rows(args, tokenizer, tokenizer_hash: str) -> tuple[list[lis
     input_digest = sha256_file(args.text_file)
     if token_path.exists():
         rows, stored = load_token_rows(token_path)
-        expected = _token_contract(args, tokenizer_hash, input_digest, rows)
+        expected = _token_contract(
+            args, tokenizer_hash, input_digest, rows, stored.get("window_sources")
+        )
         if stored != expected:
             raise RuntimeError(f"frozen token windows use a different contract: {token_path}")
         write_or_validate_manifest(root / "tokens", expected)
         return rows, stored
 
     windows = list(
-        token_windows(
+        token_windows_with_sources(
             tokenizer,
             iter_texts(args.text_file, limit=max(args.sequences * 8, args.sequences)),
             seq_len=args.seq_len,
@@ -86,8 +90,12 @@ def _load_or_freeze_rows(args, tokenizer, tokenizer_hash: str) -> tuple[list[lis
         raise RuntimeError(
             f"only {len(windows)}/{args.sequences} calibration windows were available"
         )
-    rows = [[int(token) for token in window.tolist()] for window in windows]
-    contract = _token_contract(args, tokenizer_hash, input_digest, rows)
+    rows = [[int(token) for token in window.token_ids.tolist()] for window in windows]
+    sources = [
+        {"document_id": window.document_id, "chunk_id": window.chunk_id}
+        for window in windows
+    ]
+    contract = _token_contract(args, tokenizer_hash, input_digest, rows, sources)
     write_or_validate_manifest(root / "tokens", contract)
     save_token_rows(token_path, rows, contract)
     return rows, contract
@@ -137,7 +145,7 @@ def main() -> None:
     )
     model_info = model_metadata(model, model_id, tokenizer_hash)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": args.role,
         "pair": {"target": args.target, "draft": args.draft},
         "model": model_info,
@@ -146,6 +154,9 @@ def main() -> None:
             "seq_len": args.seq_len,
             "stride": args.stride,
         },
+        "dtype": args.dtype,
+        "input_sha256": token_contract["input_sha256"],
+        "window_sources": token_contract["window_sources"],
         "token_rows_digest": token_contract["token_rows_digest"],
         "token_row_digests": token_contract["token_row_digests"],
     }
@@ -161,6 +172,7 @@ def main() -> None:
             "token_digest": row_digest,
             "role": args.role,
             "model_revision": model_info["revision"],
+            "dtype": args.dtype,
         }
         if path.exists():
             existing, existing_metadata = load_cache_shard(path)
@@ -193,4 +205,30 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except torch.cuda.OutOfMemoryError as exc:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        root = Path(sys.argv[sys.argv.index("--pair-dir") + 1])
+        role = sys.argv[sys.argv.index("--role") + 1]
+        requested = (
+            int(sys.argv[sys.argv.index("--sequences") + 1])
+            if "--sequences" in sys.argv
+            else 128
+        )
+        completed = len(list((root / role / "shards").glob("*.pt")))
+        atomic_write_json(
+            root / role / "failure.json",
+            {
+                "status": "incomplete",
+                "requested_rows": requested,
+                "completed_rows": completed,
+                "failure": {
+                    "phase": "model_load_or_capture",
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            },
+        )
+        raise
