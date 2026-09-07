@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Stage A: re-evaluate the EXISTING Qwen3-8B -> Qwen3-4B mapper against the
-# verifier distribution.  This script intentionally does not refit the mapper.
+# verifier distribution. This script intentionally does not refit the mapper.
 
 : "${EVAL_TEXT:?Set EVAL_TEXT to the frozen held-out pair-screen text file}"
 
@@ -15,6 +15,7 @@ RESULT_ROOT="${RESULT_ROOT:-results/target_alignment_2026-09-07}"
 BOOTSTRAP_SAMPLES="${BOOTSTRAP_SAMPLES:-10000}"
 RUN_E2_ON_SUPPORT="${RUN_E2_ON_SUPPORT:-1}"
 EXPAND_ON_INCONCLUSIVE="${EXPAND_ON_INCONCLUSIVE:-1}"
+PRUNE_SCREEN_SHARDS="${PRUNE_SCREEN_SHARDS:-1}"
 
 if [[ ! -f "$MAPPER" || ! -f "$MAPPER_METADATA" ]]; then
   cat >&2 <<EOF
@@ -22,20 +23,19 @@ Stage A requires the EXISTING audited 8B->4B mapper so the translator is held fi
 Missing:
   mapper:          $MAPPER
   mapper metadata: $MAPPER_METADATA
-Do not silently refit for this experiment.  Restore the prior artifact on this host,
+Do not silently refit for this experiment. Restore the prior artifact on this host,
 or run scripts/run_32b_to_14b_pair_screen.sh as the next independent candidate.
 EOF
   exit 3
 fi
 
-if [[ "$RUN_E2_ON_SUPPORT" != "0" && "$RUN_E2_ON_SUPPORT" != "1" ]]; then
-  echo "RUN_E2_ON_SUPPORT must be 0 or 1" >&2
-  exit 2
-fi
-if [[ "$EXPAND_ON_INCONCLUSIVE" != "0" && "$EXPAND_ON_INCONCLUSIVE" != "1" ]]; then
-  echo "EXPAND_ON_INCONCLUSIVE must be 0 or 1" >&2
-  exit 2
-fi
+for value_name in RUN_E2_ON_SUPPORT EXPAND_ON_INCONCLUSIVE PRUNE_SCREEN_SHARDS; do
+  value="${!value_name}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "$value_name must be 0 or 1" >&2
+    exit 2
+  fi
+done
 
 mkdir -p "$ARTIFACT_ROOT" "$RESULT_ROOT/smoke" "$RESULT_ROOT"
 
@@ -62,8 +62,8 @@ run_screen() {
     --gpu-memory-gib "$GPU_MEMORY_GIB" --attention-cosine
 }
 
-# Non-scientific integration smoke.  It only verifies cache/probability binding and
-# the three-distribution evaluator.  Never quote its gate as a paper result.
+# Non-scientific integration smoke. It only verifies cache/probability binding and
+# the three-distribution evaluator. Never quote its gate as a paper result.
 SMOKE_DIR="$ARTIFACT_ROOT/smoke/screen"
 SMOKE_RESULT="$RESULT_ROOT/smoke/qwen3_8b_to_4b_target_alignment.json"
 run_screen "$SMOKE_DIR" "$SMOKE_RESULT" 4 256 200
@@ -81,7 +81,8 @@ PY
 # Scientific Stage A: same audited mapper, new verifier-probability artifacts.
 SCREEN_DIR="$ARTIFACT_ROOT/screen_n128_l1024"
 RESULT="$RESULT_ROOT/qwen3_8b_to_4b_target_alignment.json"
-run_screen "$SCREEN_DIR" "$RESULT" 128 1024 "$BOOTSTRAP_SAMPLES"
+SCIENTIFIC_PROMPTS=128
+run_screen "$SCREEN_DIR" "$RESULT" "$SCIENTIFIC_PROMPTS" 1024 "$BOOTSTRAP_SAMPLES"
 
 DECISION="$($PYTHON - "$RESULT" <<'PY'
 import json, sys
@@ -98,16 +99,72 @@ PY
 echo "Stage A decision: $DECISION"
 
 if [[ "$DECISION" == "expand" && "$EXPAND_ON_INCONCLUSIVE" == "1" ]]; then
-  SCREEN_DIR_512="$ARTIFACT_ROOT/screen_n512_l1024"
-  RESULT_512="$RESULT_ROOT/qwen3_8b_to_4b_target_alignment_n512.json"
-  run_screen "$SCREEN_DIR_512" "$RESULT_512" 512 1024 "$BOOTSTRAP_SAMPLES"
-  RESULT="$RESULT_512"
+  SCREEN_DIR="$ARTIFACT_ROOT/screen_n512_l1024"
+  RESULT="$RESULT_ROOT/qwen3_8b_to_4b_target_alignment_n512.json"
+  SCIENTIFIC_PROMPTS=512
+  run_screen "$SCREEN_DIR" "$RESULT" "$SCIENTIFIC_PROMPTS" 1024 "$BOOTSTRAP_SAMPLES"
   DECISION="$($PYTHON - "$RESULT" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["decision"]["status"])
 PY
 )"
   echo "Expanded Stage A decision: $DECISION"
+fi
+
+# Record immutable hashes before pruning reconstructible verifier KV shards. Target
+# probability shards are small and retained for re-analysis.
+"$PYTHON" - "$ARTIFACT_ROOT" "$SCREEN_DIR" "$MAPPER" "$MAPPER_METADATA" "$RESULT" "$SCIENTIFIC_PROMPTS" <<'PY'
+import sys
+from pathlib import Path
+from verifier_anchored_sd.experiment_artifacts import atomic_write_json, sha256_file
+
+artifact_root = Path(sys.argv[1])
+screen_dir = Path(sys.argv[2])
+mapper = Path(sys.argv[3])
+metadata = Path(sys.argv[4])
+result = Path(sys.argv[5])
+prompts = int(sys.argv[6])
+base_files = [
+    mapper,
+    metadata,
+    screen_dir / "manifest.json",
+    screen_dir / "complete.json",
+    screen_dir / "tokens.pt",
+    screen_dir / "tokens/manifest.json",
+    result,
+]
+probability_files = [screen_dir / "target_probs" / f"{i:05d}.pt" for i in range(prompts)]
+files = base_files + probability_files
+missing = [str(path) for path in files if not path.exists()]
+if missing:
+    raise RuntimeError(f"refusing to inventory incomplete scientific artifacts: {missing[:5]}")
+atomic_write_json(
+    artifact_root / "artifact_inventory.json",
+    {
+        "schema_version": 1,
+        "scientific_screen": str(screen_dir),
+        "scientific_result": str(result),
+        "files": {
+            str(path): {"bytes": path.stat().st_size, "sha256": sha256_file(path)}
+            for path in files
+        },
+    },
+)
+PY
+
+if [[ "$PRUNE_SCREEN_SHARDS" == "1" ]]; then
+  "$PYTHON" - "$SCREEN_DIR" "$SCIENTIFIC_PROMPTS" <<'PY'
+import sys
+from pathlib import Path
+root = Path(sys.argv[1]) / "shards"
+expected = int(sys.argv[2])
+paths = sorted(root.glob("*.pt"))
+if len(paths) != expected or any(path.parent != root for path in paths):
+    raise RuntimeError(f"refusing to prune unexpected screen shard set: {root}")
+for path in paths:
+    path.unlink()
+root.rmdir()
+PY
 fi
 
 case "$DECISION" in
