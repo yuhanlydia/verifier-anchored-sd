@@ -6,6 +6,7 @@ from verifier_anchored_sd.experiment_artifacts import (
     atomic_write_json,
     token_rows_digest,
     validate_disjoint,
+    validate_no_row_overlap,
 )
 
 
@@ -31,3 +32,10 @@ def test_calibration_and_evaluation_token_sets_must_be_disjoint():
         validate_disjoint("same", "same")
 
     validate_disjoint("calibration", "evaluation")
+
+
+def test_partial_token_window_overlap_is_rejected():
+    with pytest.raises(ValueError, match="overlap"):
+        validate_no_row_overlap(["cal-a", "shared"], ["shared", "eval-b"])
+
+    validate_no_row_overlap(["cal-a"], ["eval-b"])

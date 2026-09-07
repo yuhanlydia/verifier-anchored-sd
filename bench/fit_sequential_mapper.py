@@ -107,6 +107,7 @@ def main() -> None:
             "draft_model": draft_manifest["model"],
             "capture": source_manifest["capture"],
             "token_rows_digest": source_manifest["token_rows_digest"],
+            "token_row_digests": source_manifest["token_row_digests"],
             "mapper": {
                 "head_mode": "matched",
                 "content_space": True,

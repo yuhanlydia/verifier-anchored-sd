@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 import torch
 
+from .experiment_artifacts import validate_no_row_overlap
+
 
 def _normalize_probabilities(values: torch.Tensor) -> torch.Tensor:
     result = values.float()
@@ -138,3 +140,55 @@ def summarize_transfer(
             "bootstrap_samples": samples,
         },
     }
+
+
+def finalize_screen(
+    rows: Sequence[dict],
+    *,
+    requested: int,
+    samples: int = 10000,
+    seed: int = 0,
+    threshold: float = 0.95,
+) -> dict:
+    """Named pair-screen boundary around the generic transfer summary."""
+    return summarize_transfer(
+        rows,
+        requested=requested,
+        samples=samples,
+        seed=seed,
+        threshold=threshold,
+    )
+
+
+def validate_screen_inputs(mapper_metadata: dict, screen_manifest: dict) -> None:
+    """Require a held-out capture compatible with a fitted directional mapper."""
+    if mapper_metadata.get("pair") != screen_manifest.get("pair"):
+        raise ValueError("mapper and screen describe different model pairs")
+    source = mapper_metadata.get("source_model", {})
+    captured = screen_manifest.get("model", {})
+    if source.get("revision") != captured.get("revision"):
+        raise ValueError("screen verifier revision differs from mapper calibration")
+    if source.get("tokenizer_hash") != captured.get("tokenizer_hash"):
+        raise ValueError("screen tokenizer differs from mapper calibration")
+    validate_no_row_overlap(
+        mapper_metadata.get("token_row_digests", []),
+        screen_manifest.get("token_row_digests", []),
+    )
+
+
+def attention_output_cosines(
+    native_outputs: Sequence[torch.Tensor],
+    mapped_outputs: Sequence[torch.Tensor],
+) -> list[float]:
+    """Return flattened cosine similarity for matching draft attention layers."""
+    if len(native_outputs) != len(mapped_outputs) or not native_outputs:
+        raise ValueError("attention outputs must be non-empty and layer-aligned")
+    result = []
+    for native, mapped in zip(native_outputs, mapped_outputs, strict=True):
+        if native.shape != mapped.shape:
+            raise ValueError("matching attention outputs must have identical shapes")
+        left, right = native.float().flatten(), mapped.float().flatten()
+        if left.norm() == 0 or right.norm() == 0:
+            raise ValueError("attention output cosine is undefined for a zero vector")
+        result.append(float(torch.nn.functional.cosine_similarity(left, right, dim=0)))
+    return result

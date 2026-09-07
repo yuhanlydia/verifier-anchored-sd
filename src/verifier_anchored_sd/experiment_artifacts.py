@@ -48,3 +48,17 @@ def validate_disjoint(calibration_digest: str, evaluation_digest: str) -> None:
         raise ValueError("calibration and evaluation digests must be non-empty")
     if calibration_digest == evaluation_digest:
         raise ValueError("calibration/evaluation token-window overlap detected")
+
+
+def validate_no_row_overlap(
+    calibration_row_digests: Iterable[str],
+    evaluation_row_digests: Iterable[str],
+) -> None:
+    """Reject any exact token window shared across calibration and evaluation."""
+    calibration = {str(value) for value in calibration_row_digests}
+    evaluation = {str(value) for value in evaluation_row_digests}
+    if not calibration or not evaluation:
+        raise ValueError("calibration and evaluation row digests must be non-empty")
+    overlap = calibration & evaluation
+    if overlap:
+        raise ValueError(f"calibration/evaluation token-window overlap detected: {sorted(overlap)}")

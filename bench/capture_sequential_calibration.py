@@ -58,6 +58,7 @@ def _token_contract(args, tokenizer_hash: str, input_digest: str, rows) -> dict:
         "seq_len": args.seq_len,
         "tokenizer_hash": tokenizer_hash,
         "token_rows_digest": token_rows_digest(rows),
+        "token_row_digests": [token_rows_digest([row]) for row in rows],
     }
 
 
@@ -146,6 +147,7 @@ def main() -> None:
             "stride": args.stride,
         },
         "token_rows_digest": token_contract["token_rows_digest"],
+        "token_row_digests": token_contract["token_row_digests"],
     }
     write_or_validate_manifest(role_root, manifest)
     shard_root = role_root / "shards"

@@ -290,7 +290,7 @@ git commit -m "feat: fit sequential matched-head mappers"
 - `eval_pair_transfer.py` consumes those shards plus a mapper, loads only the draft,
   and writes a complete screen JSON.
 
-- [ ] **Step 1: Write failing contract tests for valid row counts and disjointness**
+- [x] **Step 1: Write failing contract tests for valid row counts and disjointness**
 
 ```python
 def test_screen_cannot_pass_with_missing_rows():
@@ -302,17 +302,17 @@ def test_screen_rejects_calibration_digest_reuse():
         validate_screen_inputs({"token_rows_digest": "x"}, {"token_rows_digest": "x"})
 ```
 
-- [ ] **Step 2: Run the tests and observe the intended missing-function failures**
+- [x] **Step 2: Run the tests and observe the intended missing-function failures**
 
 Run: `.venv/bin/pytest tests/test_pair_screen_contract.py -q`
 Expected: import failures for new screen functions.
 
-- [ ] **Step 3: Implement verifier-only held-out capture**
+- [x] **Step 3: Implement verifier-only held-out capture**
 
 Use the Task 2 shard format without stride. Store the real next token ID separately
 from each prefix and include token-window digests in every shard.
 
-- [ ] **Step 4: Implement native versus mapped-native-frontier draft evaluation**
+- [x] **Step 4: Implement native versus mapped-native-frontier draft evaluation**
 
 ```python
 native = forward_incremental(draft, prefix_ids)
@@ -328,12 +328,12 @@ Register hooks on each draft `self_attn` module only when
 `--attention-cosine` is supplied. Reduce the final-token output immediately and
 remove every hook in `finally`.
 
-- [ ] **Step 5: Run focused tests and both CLI help commands**
+- [x] **Step 5: Run focused tests and both CLI help commands**
 
 Run: `.venv/bin/pytest tests/test_pair_screen_contract.py tests/test_transfer_metrics.py -q && .venv/bin/python bench/capture_screen_prefixes.py --help >/dev/null && .venv/bin/python bench/eval_pair_transfer.py --help >/dev/null`
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add bench/capture_screen_prefixes.py bench/eval_pair_transfer.py src/verifier_anchored_sd/transfer_metrics.py tests/test_pair_screen_contract.py
