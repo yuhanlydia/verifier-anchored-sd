@@ -424,7 +424,7 @@ git commit -m "feat: preserve native causal frontiers"
 - Produces: `acceptance_methods() -> dict[str, dict[str, str]]`.
 - Produces: `classify_mapper_retention(value) -> Literal["confirmatory", "exploratory", "reject"]` and `classify_refresh_delta(ci_low, ci_high) -> Literal["support", "stop", "inconclusive"]`.
 
-- [ ] **Step 1: Write failing method-matrix and gate tests**
+- [x] **Step 1: Write failing method-matrix and gate tests**
 
 ```python
 def test_e2_method_matrix_keeps_legacy_and_primary_contrasts_separate():
@@ -438,18 +438,18 @@ def test_refresh_decision_requires_confidence_interval_sign():
     assert classify_refresh_delta(-0.01, 0.02) == "inconclusive"
 ```
 
-- [ ] **Step 2: Run tests and verify failures**
+- [x] **Step 2: Run tests and verify failures**
 
 Run: `.venv/bin/pytest tests/test_acceptance_method_matrix.py tests/test_evaluation_stats.py -q`
 Expected: missing matrix/gate functions.
 
-- [ ] **Step 3: Implement the five methods and paired contrasts**
+- [x] **Step 3: Implement the five methods and paired contrasts**
 
 Output keys are `accepted_only_minus_init_expected_mal`,
 `legacy_full_minus_legacy_init_expected_mal`, and the corresponding realized-MAL
 contrasts. Preserve per-prompt seeds across all methods.
 
-- [ ] **Step 4: Implement exact decision fields**
+- [x] **Step 4: Implement exact decision fields**
 
 ```python
 retention = mapped_init / max(native, 1e-12)
@@ -461,12 +461,12 @@ gates = {
 }
 ```
 
-- [ ] **Step 5: Run focused E2 and state-machine tests**
+- [x] **Step 5: Run focused E2 and state-machine tests**
 
 Run: `.venv/bin/pytest tests/test_acceptance_method_matrix.py tests/test_evaluation_stats.py tests/test_native_frontier_policy.py -q`
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add bench/eval_acceptance_pilot.py tests/test_acceptance_method_matrix.py tests/test_evaluation_stats.py

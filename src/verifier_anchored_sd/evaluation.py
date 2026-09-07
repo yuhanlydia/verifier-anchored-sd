@@ -2,9 +2,55 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 
 import torch
+
+
+def acceptance_methods() -> dict[str, dict[str, str]]:
+    """Return the preregistered E2 method matrix in stable execution order."""
+    return {
+        "native_sd": {"init_mode": "native", "refresh_policy": "none"},
+        "legacy_mapped_init_only": {
+            "init_mode": "legacy_mapped",
+            "refresh_policy": "none",
+        },
+        "mapped_init_only": {
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "none",
+        },
+        "legacy_full_refresh": {
+            "init_mode": "legacy_mapped",
+            "refresh_policy": "full",
+        },
+        "mapped_accepted_only": {
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "accepted_only",
+        },
+    }
+
+
+def classify_mapper_retention(retention: float) -> str:
+    """Classify mapped/native expected-MAL retention before refresh inference."""
+    if not math.isfinite(retention) or retention < 0:
+        raise ValueError("mapper retention must be finite and non-negative")
+    if retention >= 0.90:
+        return "confirmatory"
+    if retention >= 0.85:
+        return "exploratory"
+    return "reject"
+
+
+def classify_refresh_delta(ci_low: float, ci_high: float) -> str:
+    """Apply the preregistered sign decision to a paired refresh interval."""
+    if not math.isfinite(ci_low) or not math.isfinite(ci_high) or ci_low > ci_high:
+        raise ValueError("refresh confidence interval must be finite and ordered")
+    if ci_low > 0:
+        return "support"
+    if ci_high < 0:
+        return "stop"
+    return "inconclusive"
 
 
 def block_bucket_overlap(*, cursor: int, emitted: int, lo: int, hi: int) -> int:

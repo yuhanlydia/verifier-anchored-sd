@@ -18,7 +18,12 @@ import torch
 from common import iter_texts, load_hf_pair
 
 from verifier_anchored_sd.device_utils import timing_device_for_models
-from verifier_anchored_sd.evaluation import paired_bootstrap_mean_difference
+from verifier_anchored_sd.evaluation import (
+    acceptance_methods,
+    classify_mapper_retention,
+    classify_refresh_delta,
+    paired_bootstrap_mean_difference,
+)
 from verifier_anchored_sd.resource_profiles import e2_profile
 from verifier_anchored_sd.spec_decode.hf_runtime import QwenPairRuntime
 from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMapper
@@ -105,11 +110,7 @@ def main():
     if not texts:
         raise RuntimeError("no usable prompt texts were found")
     rows = []
-    methods = {
-        "native_sd": {"init_mode": "native", "refresh": False},
-        "ridge_init_only": {"init_mode": "mapped", "refresh": False},
-        "ridge_refresh": {"init_mode": "mapped", "refresh": True},
-    }
+    methods = acceptance_methods()
     cuda_device = timing_device_for_models(target, draft)
 
     for method, options in methods.items():
@@ -125,7 +126,7 @@ def main():
                 mapper,
                 seed=idx,
                 init_mode=options["init_mode"],
-                refresh=options["refresh"],
+                refresh_policy=options["refresh_policy"],
             )
             if cuda_device.type == "cuda":
                 torch.cuda.synchronize(cuda_device)
@@ -180,40 +181,64 @@ def main():
         )
 
     paired = {
-        "refresh_minus_init_expected_mal": _paired(
+        "accepted_only_minus_init_expected_mal": _paired(
             rows,
-            "ridge_refresh",
-            "ridge_init_only",
+            "mapped_accepted_only",
+            "mapped_init_only",
             "expected_accepted_length",
             samples=args.bootstrap_samples,
             seed=0,
         ),
-        "refresh_minus_init_realized_mal": _paired(
+        "accepted_only_minus_init_realized_mal": _paired(
             rows,
-            "ridge_refresh",
-            "ridge_init_only",
+            "mapped_accepted_only",
+            "mapped_init_only",
             "mean_accepted_length",
             samples=args.bootstrap_samples,
             seed=1,
         ),
-        "refresh_minus_native_throughput": _paired(
+        "legacy_full_minus_legacy_init_expected_mal": _paired(
             rows,
-            "ridge_refresh",
-            "native_sd",
-            "output_tokens_per_s",
+            "legacy_full_refresh",
+            "legacy_mapped_init_only",
+            "expected_accepted_length",
             samples=args.bootstrap_samples,
             seed=2,
         ),
+        "legacy_full_minus_legacy_init_realized_mal": _paired(
+            rows,
+            "legacy_full_refresh",
+            "legacy_mapped_init_only",
+            "mean_accepted_length",
+            samples=args.bootstrap_samples,
+            seed=3,
+        ),
+        "accepted_only_minus_native_throughput": _paired(
+            rows,
+            "mapped_accepted_only",
+            "native_sd",
+            "output_tokens_per_s",
+            samples=args.bootstrap_samples,
+            seed=4,
+        ),
     }
     native_expected = summary["native_sd"]["expected_accepted_length"]
-    init_expected = summary["ridge_init_only"]["expected_accepted_length"]
+    init_expected = summary["mapped_init_only"]["expected_accepted_length"]
     retention = init_expected / max(native_expected, 1e-12)
-    refresh_ci = paired["refresh_minus_init_expected_mal"]
+    mapper_status = classify_mapper_retention(retention)
+    refresh_ci = paired["accepted_only_minus_init_expected_mal"]
+    refresh_status = classify_refresh_delta(refresh_ci["ci_low"], refresh_ci["ci_high"])
     gates = {
-        "G1_mapped_acceptance_retention_ge_0p80": retention >= 0.80,
-        "G1_expected_mal_retention": retention,
-        "G2_refresh_expected_mal_ci_positive": refresh_ci["ci_low"] > 0.0,
-        "G2_refresh_expected_mal_delta": refresh_ci["mean_difference"],
+        "mapped_native_frontier_expected_mal_retention": retention,
+        "mapper_status": mapper_status,
+        "accepted_only_expected_mal_delta": refresh_ci["mean_difference"],
+        "accepted_only_status": refresh_status,
+        "structural_decision": (
+            refresh_status if mapper_status == "confirmatory" else "not_eligible"
+        ),
+        "legacy_full_expected_mal_delta": paired[
+            "legacy_full_minus_legacy_init_expected_mal"
+        ]["mean_difference"],
     }
 
     result = {
