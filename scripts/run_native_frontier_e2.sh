@@ -11,7 +11,7 @@ PROMPTS="${PROMPTS:-64}"
 PROMPT_TOKENS="${PROMPT_TOKENS:-512}"
 NEW_TOKENS="${NEW_TOKENS:-64}"
 
-readarray -t PAIR < <("$PYTHON" - "$SCREEN_RESULT" <<'PY'
+"$PYTHON" - "$SCREEN_RESULT" <<'PY'
 import json
 import sys
 
@@ -19,6 +19,13 @@ result = json.load(open(sys.argv[1]))
 status = result.get("gate", {}).get("status")
 if status != "pass":
     raise SystemExit(f"pair screen must pass before E2 (status={status!r})")
+PY
+
+readarray -t PAIR < <("$PYTHON" - "$SCREEN_RESULT" <<'PY'
+import json
+import sys
+
+result = json.load(open(sys.argv[1]))
 print(result["pair"]["target"])
 print(result["pair"]["draft"])
 PY

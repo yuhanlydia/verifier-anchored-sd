@@ -121,6 +121,10 @@ export EVAL_TEXT=/path/to/disjoint_frozen_evaluation.jsonl
 bash scripts/run_pair_screen.sh
 ```
 
+On the 100GB reference host, the runner writes hashes to
+`artifact_inventory.json` and prunes completed cache shards after each candidate.
+Set `PRUNE_COMPLETED_SHARDS=0` only when the host has enough disk to retain them.
+
 For a passing result:
 
 ```bash

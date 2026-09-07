@@ -571,24 +571,24 @@ restricted to the integration probe, one held-out 64-token prefix, and CPU fitti
 Expected: source and draft load sequentially, artifacts resume, one finite transfer
 row is written, and the result is labeled `integration_probe`, never scientific.
 
-- [ ] **Step 7: Run the preregistered pair screen on the 16GB A4000**
+- [x] **Step 7: Run the preregistered pair screen on the 16GB A4000**
 
 Run: `bash scripts/run_pair_screen.sh`
 Expected: completed result JSON for both pairs or a precise durable phase/OOM record
 that can resume on the next host without repeating completed capture.
 
-- [ ] **Step 8: Write the dated result record from machine-readable outputs**
+- [x] **Step 8: Write the dated result record from machine-readable outputs**
 
 Record exact commands, revisions, environment, metrics, confidence intervals,
 decisions, incomplete phases, and the next permitted experiment. Do not infer a
 gate result from partial rows.
 
-- [ ] **Step 9: Re-run final verification and inspect repository state**
+- [x] **Step 9: Re-run final verification and inspect repository state**
 
 Run: `.venv/bin/python -m compileall -q src bench training && .venv/bin/ruff check . && .venv/bin/pytest -q && git diff --check && git status --short`
 Expected: all checks pass; only intentional result/doc changes remain.
 
-- [ ] **Step 10: Commit orchestration and recorded results**
+- [x] **Step 10: Commit orchestration and recorded results**
 
 ```bash
 git add configs/pair_screen.yaml scripts/run_pair_screen.sh scripts/run_native_frontier_e2.sh README.md docs/NEXT_EXPERIMENTS.md docs/PAIR_SCREEN_2026-09-07.md

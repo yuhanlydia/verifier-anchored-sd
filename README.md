@@ -37,7 +37,10 @@ bash scripts/run_pair_screen.sh
 
 The frozen candidate matrix and model revisions are in
 `configs/pair_screen.yaml`. Completed phases resume from validated manifests and
-shards. Only a passing pair may enter HellaSwag confirmation or E2.
+shards. After a complete result, the script records an artifact inventory and
+prunes large reconstructible shards by default; set `PRUNE_COMPLETED_SHARDS=0` to
+retain them. A completed result makes later invocations skip that pair. Only a
+passing pair may enter HellaSwag confirmation or E2.
 
 E2 now has five methods: native SD, legacy mapped init-only, native-frontier mapped
 init-only, legacy full refresh, and accepted-only refresh. The primary structural
