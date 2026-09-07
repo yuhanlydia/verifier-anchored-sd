@@ -135,6 +135,31 @@ def write_or_validate_manifest(directory: str | Path, contract: dict) -> Path:
     return path
 
 
+def load_manifest(directory: str | Path) -> dict:
+    path = Path(directory) / "manifest.json"
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"failed to load artifact manifest: {path}") from exc
+    if not isinstance(value, dict):
+        raise TypeError(f"artifact manifest must contain an object: {path}")
+    return value
+
+
+def exact_shard_paths(directory: str | Path, count: int) -> list[Path]:
+    """Return ordered shard paths only when the directory contains the exact set."""
+    if count <= 0:
+        raise ValueError("shard count must be positive")
+    root = Path(directory)
+    expected = [root / f"{index:05d}.pt" for index in range(count)]
+    actual = sorted(root.glob("*.pt")) if root.exists() else []
+    if actual != expected:
+        missing = [str(path) for path in expected if path not in actual]
+        extra = [str(path) for path in actual if path not in expected]
+        raise RuntimeError(f"artifact shard set mismatch; missing={missing}, extra={extra}")
+    return expected
+
+
 def validate_capture_pair(source: dict, draft: dict) -> dict[str, int]:
     """Validate that two sequential captures form one directional mapper dataset."""
     if source.get("role") != "source" or draft.get("role") != "draft":

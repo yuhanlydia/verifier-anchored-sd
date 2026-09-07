@@ -227,7 +227,7 @@ git commit -m "feat: capture calibration caches sequentially"
 - Produces: `select_source_layers_by_r2(pairs, *, target_layers, draft_layers, kv_heads, head_dim, top_k, device, layer_block_size, content_space) -> (list[list[int]], list[list[float]])`.
 - Consumes: Task 2 `load_cache_shard`; existing `fit_matched_head_mapper_from_cache_pairs`.
 
-- [ ] **Step 1: Write a failing synthetic selection test**
+- [x] **Step 1: Write a failing synthetic selection test**
 
 ```python
 def test_r2_selection_finds_the_constructed_source_layer():
@@ -237,19 +237,19 @@ def test_r2_selection_finds_the_constructed_source_layer():
     assert scores[0][1] > scores[0][0]
 ```
 
-- [ ] **Step 2: Run the test and verify missing selector failure**
+- [x] **Step 2: Run the test and verify missing selector failure**
 
 Run: `.venv/bin/pytest tests/test_head_local_selection.py -q`
 Expected: import failure for `select_source_layers_by_r2`.
 
-- [ ] **Step 3: Implement streaming centered univariate-layer R² selection**
+- [x] **Step 3: Implement streaming centered univariate-layer R² selection**
 
 For each draft layer and source layer, accumulate per-head centered sufficient
 statistics in FP32, solve ridge with alpha `1e-6`, compute held-in explained
 variance across K and V, average across heads, and select the stable descending
 top-k with source-layer index as tie-breaker.
 
-- [ ] **Step 4: Implement mapper fit CLI with exact shard-set validation**
+- [x] **Step 4: Implement mapper fit CLI with exact shard-set validation**
 
 ```python
 def pair_factory(paths):
@@ -265,12 +265,12 @@ The CLI selects on the first `--selection-sequences` ordered pairs, fits on ever
 requested pair, saves the mapper and JSON metadata atomically, and rejects missing,
 extra, or differently ordered shards.
 
-- [ ] **Step 5: Run selector, existing fitter, and CLI checks**
+- [x] **Step 5: Run selector, existing fitter, and CLI checks**
 
 Run: `.venv/bin/pytest tests/test_head_local_selection.py tests/test_head_local_fit.py -q && .venv/bin/python bench/fit_sequential_mapper.py --help >/dev/null`
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/verifier_anchored_sd/spec_decode/head_local_fit.py bench/fit_sequential_mapper.py tests/test_head_local_selection.py

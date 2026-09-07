@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from verifier_anchored_sd.cache_artifacts import (
+    exact_shard_paths,
     load_cache_shard,
     load_token_rows,
     sample_cache_tokens,
@@ -62,3 +63,19 @@ def test_token_rows_round_trip_as_plain_integer_lists(tmp_path):
 
     assert rows == [[1, 2, 3], [4, 5, 6]]
     assert metadata == {"count": 2, "seq_len": 3}
+
+
+def test_exact_shard_set_rejects_missing_or_extra_files(tmp_path):
+    (tmp_path / "00000.pt").touch()
+    with pytest.raises(RuntimeError, match="shard set"):
+        exact_shard_paths(tmp_path, count=2)
+
+    (tmp_path / "00001.pt").touch()
+    assert exact_shard_paths(tmp_path, count=2) == [
+        tmp_path / "00000.pt",
+        tmp_path / "00001.pt",
+    ]
+
+    (tmp_path / "00002.pt").touch()
+    with pytest.raises(RuntimeError, match="shard set"):
+        exact_shard_paths(tmp_path, count=2)
