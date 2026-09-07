@@ -36,7 +36,8 @@ run_candidate() {
     "$result" "$mapper" "$mapper.json" "$target" "$target_revision" \
     "$draft" "$draft_revision" "$CALIBRATION_TEXT" "$EVAL_TEXT" \
     "$SEQUENCES" "$SEQ_LEN" "$STRIDE" "$SELECTION_SEQUENCES" \
-    "$PROMPTS" "$PREFIX_TOKENS" "$BOOTSTRAP_SAMPLES" "$CONTEXT_PROMPTS" <<'PY'
+    "$PROMPTS" "$PREFIX_TOKENS" "$BOOTSTRAP_SAMPLES" "$CONTEXT_PROMPTS" \
+    "$GPU_MEMORY_GIB" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -48,6 +49,7 @@ from verifier_anchored_sd.experiment_artifacts import sha256_file
     draft, draft_revision, calibration_text, eval_text,
     sequences, seq_len, stride, selection_sequences,
     initial_prompts, prefix_tokens, bootstrap_samples, context_prompts,
+    gpu_memory_gib,
 ) = sys.argv[1:]
 result = json.loads(Path(result_path).read_text())
 metadata = json.loads(Path(metadata_path).read_text())
@@ -72,6 +74,10 @@ checks = [
         "count": int(sequences), "seq_len": int(seq_len), "stride": int(stride)
     },
     protocol.get("mapper") == metadata.get("mapper"),
+    result.get("source_model") == metadata.get("source_model"),
+    result.get("draft_model") == metadata.get("draft_model"),
+    result.get("mapper_metadata_sha256") == sha256_file(metadata_path),
+    result.get("mapper_checkpoint_sha256") == sha256_file(mapper_path),
     metadata.get("mapper", {}).get("k") == 8,
     metadata.get("mapper", {}).get("lambda") == 0.01,
     metadata.get("mapper", {}).get("selection_ridge") == 0.000001,
@@ -84,6 +90,9 @@ checks = [
     protocol.get("bootstrap_samples") == int(bootstrap_samples),
     protocol.get("threshold") == 0.95,
     protocol.get("attention_cosine") is True,
+    protocol.get("device") == "cuda",
+    protocol.get("mapper_device") == "cuda",
+    protocol.get("gpu_memory_gib") == int(gpu_memory_gib),
 ]
 if result.get("gate", {}).get("status") == "pass":
     base = Path(result_path)
@@ -108,6 +117,7 @@ if result.get("gate", {}).get("status") == "pass":
                     "calibration_input_sha256", "evaluation_input_sha256",
                     "calibration_capture", "mapper", "mapper_checkpoint_sha256",
                     "bootstrap_samples", "threshold", "attention_cosine",
+                    "device", "mapper_device", "gpu_memory_gib",
                 )
             ),
         ])

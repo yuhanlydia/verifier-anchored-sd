@@ -134,7 +134,10 @@ def main():
     mapper_metadata = json.loads(mapper_metadata_path.read_text(encoding="utf-8"))
     mapper_sha = sha256_file(mapper_path)
     contract = validate_e2_artifacts(
-        screen_result, mapper_metadata, mapper_sha256=mapper_sha
+        screen_result,
+        mapper_metadata,
+        mapper_sha256=mapper_sha,
+        mapper_metadata_sha256=sha256_file(mapper_metadata_path),
     )
     pair = mapper_metadata["pair"]
     if args.target is not None and args.target != pair["target"]:
@@ -173,6 +176,9 @@ def main():
         "gamma": args.gamma,
         "bootstrap_samples": args.bootstrap_samples,
         "methods": methods,
+        "device": args.device,
+        "low_vram": bool(args.low_vram),
+        "memory_profile": args.memory_profile,
     }
     progress_path = Path(f"{args.output}.progress.json")
     rows = []

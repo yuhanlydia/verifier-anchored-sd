@@ -40,5 +40,11 @@ def test_confirmatory_eval_requires_a_passing_distribution_screen():
     with pytest.raises(RuntimeError, match="did not pass"):
         validate_screen_gate({"gate": {"status": "fail"}})
 
-    validate_screen_gate({"gate": {"status": "pass"}})
+    validate_screen_gate(
+        {"gate": {"status": "pass"}, "requested_rows": 128, "completed_rows": 128}
+    )
+    with pytest.raises(RuntimeError, match="complete"):
+        validate_screen_gate(
+            {"gate": {"status": "pass"}, "requested_rows": 128, "completed_rows": 17}
+        )
     validate_screen_gate({"gate": {"status": "fail"}}, allow_failed=True)

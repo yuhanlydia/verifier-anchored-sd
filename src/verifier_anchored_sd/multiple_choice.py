@@ -16,6 +16,11 @@ def validate_screen_gate(screen_result: dict, *, allow_failed: bool = False) -> 
             f"pair distribution screen did not pass (status={status!r}); "
             "use --allow-failed-screen only for a diagnostic run"
         )
+    if not allow_failed:
+        requested = screen_result.get("requested_rows")
+        completed = screen_result.get("completed_rows")
+        if not isinstance(requested, int) or requested <= 0 or completed != requested:
+            raise RuntimeError("pair distribution screen must be complete before confirmation")
 
 
 def choice_nll(

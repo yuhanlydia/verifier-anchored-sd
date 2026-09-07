@@ -5,6 +5,7 @@ from verifier_anchored_sd.spec_decode.hf_runtime import (
     Forward,
     QwenPairRuntime,
     _model_input_device,
+    _single_token_input,
 )
 from verifier_anchored_sd.spec_decode.verifier_cache_refresh import VerifierAnchoredCache
 
@@ -104,3 +105,4 @@ def test_runtime_uses_embedding_device_for_accelerate_offload_models():
             return self.embedding
 
     assert _model_input_device(Offloaded()) == torch.device("cpu")
+    assert _single_token_input(Offloaded(), 3).device == torch.device("cpu")

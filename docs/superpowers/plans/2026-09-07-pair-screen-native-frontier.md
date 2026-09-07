@@ -594,3 +594,17 @@ Expected: all checks pass; only intentional result/doc changes remain.
 git add configs/pair_screen.yaml scripts/run_pair_screen.sh scripts/run_native_frontier_e2.sh README.md docs/NEXT_EXPERIMENTS.md docs/PAIR_SCREEN_2026-09-07.md
 git commit -m "exp: add pair-screen and native-frontier protocol"
 ```
+
+### Post-run correctness audit
+
+- [x] Replace the invalid autoregressive overlap product with proposal-token
+  conditional acceptance ratios and withdraw affected historical expected-MAL gates.
+- [x] Preserve mapped history in HellaSwag native-frontier scoring.
+- [x] Bind E2 to the exact passing screen, mapper SHA, model revisions, tokenizer,
+  dtype, prompt file, and requested prompt count.
+- [x] Record dtype and raw-input provenance in capture contracts and standalone
+  results; require exact protocol equality before result reuse.
+- [x] Preserve document/chunk provenance and recompute pair-screen intervals with
+  source-document-cluster bootstrap.
+- [x] Persist pair-screen, HellaSwag, and E2 progress and OOM failures; implement
+  the predeclared 512-row inconclusive expansion and 2K/8K post-pass diagnostics.

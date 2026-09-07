@@ -18,6 +18,7 @@ def _artifacts():
         "source_model": source,
         "draft_model": draft,
         "mapper_checkpoint_sha256": "mapper-sha",
+        "mapper_metadata_sha256": "metadata-sha",
         "requested_rows": 128,
         "completed_rows": 128,
         "gate": {"status": "pass"},
@@ -29,7 +30,12 @@ def _artifacts():
 def test_e2_contract_binds_screen_to_mapper_and_revisions():
     screen, metadata = _artifacts()
 
-    contract = validate_e2_artifacts(screen, metadata, mapper_sha256="mapper-sha")
+    contract = validate_e2_artifacts(
+        screen,
+        metadata,
+        mapper_sha256="mapper-sha",
+        mapper_metadata_sha256="metadata-sha",
+    )
 
     assert contract["target_revision"] == "t-rev"
     assert contract["draft_revision"] == "d-rev"
@@ -41,7 +47,12 @@ def test_e2_contract_rejects_unrelated_mapper():
     screen, metadata = _artifacts()
 
     with pytest.raises(RuntimeError, match="checkpoint"):
-        validate_e2_artifacts(screen, metadata, mapper_sha256="different")
+        validate_e2_artifacts(
+            screen,
+            metadata,
+            mapper_sha256="different",
+            mapper_metadata_sha256="metadata-sha",
+        )
 
 
 def test_e2_contract_rejects_incomplete_screen():
@@ -49,4 +60,21 @@ def test_e2_contract_rejects_incomplete_screen():
     screen["completed_rows"] = 127
 
     with pytest.raises(RuntimeError, match="complete"):
-        validate_e2_artifacts(screen, metadata, mapper_sha256="mapper-sha")
+        validate_e2_artifacts(
+            screen,
+            metadata,
+            mapper_sha256="mapper-sha",
+            mapper_metadata_sha256="metadata-sha",
+        )
+
+
+def test_e2_contract_rejects_edited_mapper_metadata():
+    screen, metadata = _artifacts()
+
+    with pytest.raises(RuntimeError, match="metadata"):
+        validate_e2_artifacts(
+            screen,
+            metadata,
+            mapper_sha256="mapper-sha",
+            mapper_metadata_sha256="edited",
+        )

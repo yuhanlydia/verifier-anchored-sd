@@ -187,6 +187,8 @@ def main() -> None:
         raise RuntimeError("screen result and mapper describe different pairs")
     if screen_result.get("mapper_checkpoint_sha256") != mapper_sha:
         raise RuntimeError("screen result is not bound to this mapper checkpoint")
+    if screen_result.get("mapper_metadata_sha256") != sha256_file(metadata_path):
+        raise RuntimeError("screen result is not bound to this mapper metadata")
     if screen_result.get("source_model") != mapper_metadata["source_model"]:
         raise RuntimeError("screen verifier differs from mapper metadata")
     if screen_result.get("draft_model") != mapper_metadata["draft_model"]:
@@ -293,14 +295,19 @@ def main() -> None:
         "dataset": capture_contract["dataset"],
         "examples": args.examples,
         "examples_digest": examples_digest,
+        "device": args.device,
+        "mapper_device": args.mapper_device,
+        "gpu_memory_gib": args.gpu_memory_gib,
     }
     progress_path = Path(f"{args.output}.progress.json")
     rows = []
+    prior_elapsed = 0.0
     if progress_path.exists():
         progress = json.loads(progress_path.read_text(encoding="utf-8"))
         if progress.get("protocol_contract") != protocol_contract:
             raise RuntimeError("HellaSwag progress uses a different protocol contract")
         rows = progress.get("rows", [])
+        prior_elapsed = float(progress.get("elapsed_s", 0.0))
         if not isinstance(rows, list):
             raise RuntimeError("invalid HellaSwag progress rows")
     completed = {int(row["example"]) for row in rows}
@@ -349,6 +356,7 @@ def main() -> None:
                 {
                     "schema_version": 1,
                     "protocol_contract": protocol_contract,
+                    "elapsed_s": prior_elapsed + time.perf_counter() - started,
                     "rows": rows,
                 },
             )
@@ -367,6 +375,7 @@ def main() -> None:
                 "protocol_contract": protocol_contract,
                 "requested_rows": args.examples,
                 "completed_rows": len(rows),
+                "elapsed_s": prior_elapsed + time.perf_counter() - started,
                 "failure": {"phase": "scoring", "type": type(exc).__name__, "message": str(exc)},
                 "rows": rows,
             },
@@ -413,7 +422,7 @@ def main() -> None:
         "random_floor": 0.25,
         "floor_normalized_retention": retention,
         "gate": {"threshold": 0.95, "status": "pass" if retention >= 0.95 else "fail"},
-        "elapsed_s": time.perf_counter() - started,
+        "elapsed_s": prior_elapsed + time.perf_counter() - started,
         "rows": rows,
     }
     atomic_write_json(args.output, result)

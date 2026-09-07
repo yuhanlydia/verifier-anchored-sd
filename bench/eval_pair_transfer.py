@@ -121,13 +121,18 @@ def main() -> None:
         "bootstrap_samples": args.bootstrap_samples,
         "threshold": args.threshold,
         "attention_cosine": bool(args.attention_cosine),
+        "device": args.device,
+        "mapper_device": args.mapper_device,
+        "gpu_memory_gib": args.gpu_memory_gib,
     }
     progress_path = Path(f"{args.output}.progress.json")
     rows = []
+    prior_elapsed = 0.0
     if progress_path.exists():
         progress = json.loads(progress_path.read_text(encoding="utf-8"))
         validate_protocol_contract(progress, protocol_contract)
         rows = progress.get("rows", [])
+        prior_elapsed = float(progress.get("elapsed_s", 0.0))
         if not isinstance(rows, list) or len(rows) > args.prompts:
             raise RuntimeError("invalid pair-screen progress artifact")
 
@@ -241,6 +246,7 @@ def main() -> None:
                     "schema_version": 1,
                     "protocol_contract": protocol_contract,
                     "rows": rows,
+                    "elapsed_s": prior_elapsed + time.perf_counter() - start,
                 },
             )
             del target_cache, target_history, mapped_history, native, mapped, ids
@@ -259,7 +265,17 @@ def main() -> None:
             "gate": {"status": "incomplete", "reason": "cuda_out_of_memory"},
             "failure": {"type": type(exc).__name__, "message": str(exc)},
             "rows": rows,
+            "elapsed_s": prior_elapsed + time.perf_counter() - start,
         }
+        atomic_write_json(
+            progress_path,
+            {
+                "schema_version": 1,
+                "protocol_contract": protocol_contract,
+                "elapsed_s": failure["elapsed_s"],
+                "rows": rows,
+            },
+        )
         atomic_write_json(args.output, failure)
         raise
     finally:
@@ -301,7 +317,7 @@ def main() -> None:
         "calibration_token_rows_digest": mapper_metadata["token_rows_digest"],
         "evaluation_token_rows_digest": screen_manifest["token_rows_digest"],
         **aggregate,
-        "elapsed_s": time.perf_counter() - start,
+        "elapsed_s": prior_elapsed + time.perf_counter() - start,
         "rows": rows,
     }
     atomic_write_json(args.output, result)

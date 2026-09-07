@@ -30,6 +30,11 @@ def _model_input_device(model) -> torch.device:
     return model.get_input_embeddings().weight.device
 
 
+def _single_token_input(model, token_id: int) -> torch.Tensor:
+    """Materialize a token on the model input device, independent of cache storage."""
+    return torch.tensor([[token_id]], device=_model_input_device(model), dtype=torch.long)
+
+
 def _concat_steps(steps: list[CacheState]) -> CacheState:
     if not steps:
         raise ValueError("cannot concatenate an empty KV step list")
@@ -262,7 +267,7 @@ class QwenPairRuntime:
             return
         token = self.anchored.pending.token_id
         position = self.target_cache.seq_len
-        ids = torch.tensor([[token]], device=self.target_cache.layers[0].key.device)
+        ids = _single_token_input(self.target, token)
         target_step = forward_incremental(self.target, ids, self.target_cache)
         self.target_cache.append(target_step.cache)
         if self.refresh_policy == "full":

@@ -8,6 +8,7 @@ def validate_e2_artifacts(
     mapper_metadata: dict,
     *,
     mapper_sha256: str,
+    mapper_metadata_sha256: str,
 ) -> dict[str, str]:
     """Validate that E2 uses the exact mapper, pair, and revisions that passed."""
     if screen_result.get("gate", {}).get("status") != "pass":
@@ -30,6 +31,8 @@ def validate_e2_artifacts(
         raise RuntimeError("mapper checkpoint digest differs from mapper metadata")
     if screen_result.get("mapper_checkpoint_sha256") != mapper_sha256:
         raise RuntimeError("screen result is not bound to this mapper checkpoint")
+    if screen_result.get("mapper_metadata_sha256") != mapper_metadata_sha256:
+        raise RuntimeError("screen result is not bound to this mapper metadata")
     source = mapper_metadata["source_model"]
     draft = mapper_metadata["draft_model"]
     if source.get("tokenizer_hash") != draft.get("tokenizer_hash"):

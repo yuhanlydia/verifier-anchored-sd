@@ -167,10 +167,10 @@ Machine-readable results:
 
 ```text
 results/pair_screen_2026-09-07/qwen3_8b_to_4b.json
-SHA-256 7906d739573cada645ea7289db922c43b6c3f5965c5dcd3802118f50055aae64
+SHA-256 f7a72e1a370cdb2e532812693d51e9b95ba376622431e419ccc95e98b186c903
 
 results/pair_screen_2026-09-07/qwen3_4b_to_1p7b.json
-SHA-256 f49a3c2be3089ee160c220a94f6170a8ade2b2d27060686184ceffaa650d259f
+SHA-256 308ef7a913ad9d679d633cd0e63852e485605092da9ea9e77773de3388d5c960
 ```
 
 `artifact_inventory.json` in each pair directory records hashes for mapper,
