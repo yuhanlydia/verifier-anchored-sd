@@ -1,146 +1,185 @@
-# Next experiments: pair quality before verifier refresh
+# Next experiments: verifier-target alignment before refresh
 
-## Evidence boundary
+## Scientific correction
 
-The completed Qwen3-4B verifier -> Qwen3-1.7B run is a negative pair-quality
-result. Its new distribution screen reached only `A_transfer=0.601`; the old
-reported expected-MAL retention of 0.717 used an invalid autoregressive estimator
-and is withdrawn. The old realized refresh delta was negative, but it cannot
-distinguish a bad model pair from a bad refresh principle, so 4B -> 1.7B is now a
-stress control.
-
-The next primary candidate is Qwen3-8B verifier -> Qwen3-4B draft. Both have 36
-layers, 8 KV heads, head dimension 128, the same tokenizer vocabulary, and the same
-RoPE base. These structural matches justify screening; they do not guarantee
-transfer quality.
-
-## Frozen experiment order
-
-1. **Pair selection.** Fit the same matched-head content-space ridge mapper for
-   8B -> 4B and 4B -> 1.7B from disjoint calibration data.
-2. **Near-lossless transfer.** Compare native draft state against mapped verifier
-   history followed by one native draft frontier token.
-3. **Task confirmation.** Run mapped/native HellaSwag only for a distribution-screen
-   pass. It cannot rescue a failed distribution screen.
-4. **Speculative compatibility.** Require mapped/native expected-MAL retention of
-   at least 0.90 for confirmatory refresh inference. Retention from 0.85 through
-   0.90 is exploratory; below 0.85 rejects the pair for refresh work.
-5. **Verifier refresh.** Compare accepted-only historical refresh with mapped
-   init-only while keeping the newest causal frontier native in both methods.
-
-The full design and implementation contract are in
-`docs/superpowers/specs/2026-09-07-pair-screen-native-frontier-design.md`.
-
-## E0: sequential exact-weight mapper calibration
-
-Each directional pair uses:
-
-- 128 frozen FineWeb-Edu calibration windows of 1,024 tokens;
-- stride 4, giving 32,768 token observations;
-- matched KV heads, content-space keys, `k=8`, ridge lambda 0.01;
-- source-layer selection by head-averaged K/V R² on 32 sequences;
-- exact BF16 model weights, with verifier and draft loaded in separate processes;
-- immutable manifests containing exact Hub revisions, tokenizer hash, token-row
-  digests, geometry, and capture parameters.
-
-Calibration and evaluation token windows must have no exact or partial row overlap.
-Existing shards are accepted only when their metadata and exact shard set match the
-manifest.
-
-## E1: distribution transfer screen
-
-The primary screen uses 128 disjoint 1,024-token windows. It records the source
-document for every window and resamples whole documents in the bootstrap. For each prefix it
-computes:
+The 2026-09-07 pair screen established that Qwen3-8B -> Qwen3-4B reconstructs the
+native draft distribution much better than 4B -> 1.7B, but neither is near-lossless:
 
 ```text
-native:  draft native prefill of tokens 1..t
-mapped:  verifier KV for 1..t-1 -> mapper -> draft KV,
-         then native draft forward of token t
+8B -> 4B   A_transfer = 0.800360
+4B -> 1.7B A_transfer = 0.600986
 ```
 
-The newest token is native in both paths, so logits and the cache state that will
-be used next have the same causal provenance. Report mean, median, fifth percentile,
-and minimum `A_transfer`, native-to-mapped KL, top-1 agreement, next-token NLL
-delta, attention-output cosine diagnostics, model revisions, hashes, hardware,
-elapsed time, and requested/completed rows.
+That remains valid **native-fidelity evidence**. It is not the correct speculative-
+decoding gate.
 
-The gate is preregistered:
+Speculative decoding depends on verifier/proposal overlap. The next primary statistic
+is therefore:
 
 ```text
-A_transfer = 1 - TV(q_native, q_mapped)
-pass:         document-cluster bootstrap 95% CI lower bound > 0.95
-fail:         document-cluster bootstrap 95% CI upper bound <= 0.95
-inconclusive: interval crosses 0.95; expand to 512 prefixes
+p_T      = verifier next-token distribution
+q_native = native draft distribution
+q_mapped = mapped-verifier-history + native-draft-frontier distribution
+
+A_target_native = 1 - TV(p_T, q_native)
+A_target_mapped = 1 - TV(p_T, q_mapped)
+Delta_target = A_target_mapped - A_target_native
 ```
 
-If a pair passes, repeat a context-stability diagnostic on 32 prefixes at 2,048 and
-8,192 tokens. Record OOM per length without discarding completed lengths.
+Use a document-cluster paired bootstrap for `Delta_target`:
 
-## E2: native-frontier speculative ablation
+```text
+95% CI low  > 0 -> support      -> go_sd
+95% CI high < 0 -> harm         -> stop_pair
+CI crosses 0    -> inconclusive -> expand held-out prefixes
+```
 
-The method matrix is:
+`A_transfer > 0.95` remains a diagnostic for near-lossless native reconstruction. It
+cannot veto speculative decoding when verifier-target alignment is significantly
+improved.
 
-| Method | Initialization | Refresh |
-|---|---|---|
-| `native_sd` | native draft prefill | none |
-| `legacy_mapped_init_only` | old full-prompt map/logit mismatch | none |
-| `mapped_init_only` | mapped history + native frontier | none |
-| `legacy_full_refresh` | old full-prompt map/logit mismatch | all verified/frontier KV |
-| `mapped_accepted_only` | mapped history + native frontier | accepted history only |
+Full design:
 
-The primary state is
+```text
+docs/superpowers/specs/2026-09-07-target-alignment-gate-design.md
+```
+
+Direct testing handoff:
+
+```text
+docs/NEXT_STAGE_TARGET_ALIGNMENT.md
+```
+
+## Stage A — existing Qwen3-8B -> Qwen3-4B mapper
+
+Do **not** refit the mapper. Reuse:
+
+```text
+artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt
+```
+
+Re-capture the held-out verifier prefixes into a **fresh artifact root** because the
+old screen did not store verifier next-token distributions.
+
+Run on 32GB:
+
+```bash
+export EVAL_TEXT=/path/to/frozen_pair_selection.jsonl
+export E2_TEXT=/path/to/third_disjoint_e2.jsonl   # optional until go_sd
+export GPU_MEMORY_GIB=28
+bash scripts/run_target_alignment_next.sh
+```
+
+Run on 48GB:
+
+```bash
+export EVAL_TEXT=/path/to/frozen_pair_selection.jsonl
+export E2_TEXT=/path/to/third_disjoint_e2.jsonl
+export GPU_MEMORY_GIB=44
+bash scripts/run_target_alignment_next.sh
+```
+
+The script runs a non-scientific 4-prefix smoke, then 128 x 1,024 scientific
+prefixes with 10,000 document-cluster bootstrap samples. If the gate is inconclusive,
+it can expand to 512 prefixes without changing the mapper.
+
+## Stage A decision
+
+### `go_sd`
+
+Run native-frontier E2 on a third held-out prompt source:
+
+```text
+native_sd
+mapped_init_only
+mapped_accepted_only
+```
+
+The causal state is:
 
 ```text
 C_draft(t) = [M(C_verifier(1:t-1)); KV_draft_native(t)]
 ```
 
-The mapper gate precedes the refresh gate:
+The newest frontier stays native. Legacy full-refresh remains diagnostic only.
+
+### `stop_pair`
+
+Do not tune refresh, HellaSwag, k/lambda, or an acceptance residual to rescue 8B->4B.
+Proceed to Stage B.
+
+### `expand`
+
+Increase only the held-out evaluation clusters/prefixes. Do not change the mapper.
+
+## Stage B — Qwen3-32B -> Qwen3-14B
+
+The prior literature's strong Qwen3 result is not enough for this project because SD
+needs the reverse large-verifier -> small-draft direction. Screen 32B -> 14B directly.
+
+Fixed configuration:
 
 ```text
-mapped/native expected-MAL retention >= 0.90: confirmatory
-0.85 <= retention < 0.90: exploratory
-retention < 0.85: reject
+exact BF16 weights
+sequential model loading
+128 x 1,024 calibration windows
+stride = 4
+selection sequences = 32
+matched-head content-space ridge
+k = 8
+lambda = 0.01
+selection ridge = 1e-6
+128 x 1,024 held-out prefixes
+FP32 verifier probability artifacts
+10,000 document-cluster bootstrap samples
 ```
 
-For confirmatory pairs, compute the paired bootstrap interval for
-
-```text
-Delta = E[MAL](mapped_accepted_only) - E[MAL](mapped_init_only)
-```
-
-- CI lower bound > 0 supports historical verifier anchoring with a native frontier.
-- CI upper bound < 0 stops the verifier-anchored refresh paper direction.
-- An interval crossing zero is inconclusive and requires more held-out prompts.
-
-Legacy full refresh remains only to explain the prior negative result. It is not
-the primary method.
-
-## Commands
+48GB GPU:
 
 ```bash
 export CALIBRATION_TEXT=/path/to/frozen_calibration.jsonl
-export EVAL_TEXT=/path/to/disjoint_frozen_evaluation.jsonl
-bash scripts/run_pair_screen.sh
+export EVAL_TEXT=/path/to/disjoint_pair_selection.jsonl
+export GPU_MEMORY_GIB=44
+bash scripts/run_32b_to_14b_pair_screen.sh
 ```
 
-On the 100GB reference host, the runner writes hashes to
-`artifact_inventory.json` and prunes completed cache shards after each candidate.
-Set `PRUNE_COMPLETED_SHARDS=0` only when the host has enough disk to retain them.
-
-For a passing result:
+32GB GPU:
 
 ```bash
-export SCREEN_RESULT=results/pair_screen_2026-09-07/qwen3_8b_to_4b.json
-export MAPPER=artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt
-export EVAL_TEXT=/path/to/e2_prompts.jsonl
-bash scripts/run_native_frontier_e2.sh
+export CALIBRATION_TEXT=/path/to/frozen_calibration.jsonl
+export EVAL_TEXT=/path/to/disjoint_pair_selection.jsonl
+export GPU_MEMORY_GIB=28
+bash scripts/run_32b_to_14b_pair_screen.sh
 ```
 
-HellaSwag confirmation uses `bench/eval_mapped_hellaswag.py`. It requires a passing
-screen JSON unless `--allow-failed-screen` is supplied for an explicitly diagnostic
-run. Floor-normalized mapped/native retention must be at least 0.95 before making a
-task-quality claim.
+Exact 32B BF16 will require CPU offload on these single-GPU profiles. Recommend at
+least 96 GiB host RAM; 128 GiB is preferred. OOM must remain an incomplete result;
+do not silently quantize.
 
-Do not train an acceptance residual, run refresh as a confirmatory experiment, or
-advance the paper claim until the preceding gates pass.
+## E2 and task confirmation eligibility
+
+Both `scripts/run_native_frontier_e2.sh` and HellaSwag confirmation now require:
+
+```text
+target_alignment.gate.status == support
+decision.status == go_sd
+```
+
+Native-fidelity failure alone does not block them.
+
+The current runtime's conditional sampled-proposal expected-accepted-length estimator
+is different from the **withdrawn** overlap-product expected-MAL values stored in the
+2026-09-03 E2 artifact. Never reuse or compare the withdrawn old formula/numbers as
+if they were the current estimator.
+
+## Stop rules
+
+- Target alignment `harm`: stop that pair.
+- Target alignment `support`: allow native-frontier E2.
+- Target alignment `inconclusive`: expand held-out clusters only.
+- Incomplete/OOM: debug execution; do not interpret partial metrics.
+- No acceptance residual training until a pair receives `go_sd` and the native-
+  frontier E2 establishes a positive refresh phenomenon.
+
+The exact debug STOP contract, artifact requirements, and remote-agent reporting
+format are in `docs/NEXT_STAGE_TARGET_ALIGNMENT.md`.
