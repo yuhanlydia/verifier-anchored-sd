@@ -355,7 +355,7 @@ git commit -m "feat: evaluate sequential pair transfer"
 - `QwenPairRuntime(..., init_mode, refresh_policy)` replaces the Boolean API while
   accepting legacy `refresh=` temporarily only if needed by existing callers.
 
-- [ ] **Step 1: Write failing cache transition tests**
+- [x] **Step 1: Write failing cache transition tests**
 
 ```python
 def test_accepted_only_resolves_pending_without_replacing_native_kv():
@@ -373,18 +373,18 @@ def test_full_refresh_replaces_pending_for_legacy_reproduction():
     assert not torch.equal(state.draft_cache.layers[0].key[..., -1:, :], kv(1, 3).layers[0].key)
 ```
 
-- [ ] **Step 2: Run transition tests and verify expected failures**
+- [x] **Step 2: Run transition tests and verify expected failures**
 
 Run: `.venv/bin/pytest tests/test_native_frontier_policy.py -q`
 Expected: missing `next_probs`/`resolve_pending_native` behavior.
 
-- [ ] **Step 3: Store frontier logits with the native pending KV**
+- [x] **Step 3: Store frontier logits with the native pending KV**
 
 Extend `PendingFrontier` with `next_probs`. `append_pending` receives the native
 draft token KV plus its next-token probabilities, stores both, and
 `resolve_pending_native` clears only the marker.
 
-- [ ] **Step 4: Write failing runtime-policy tests with deterministic fake forwards**
+- [x] **Step 4: Write failing runtime-policy tests with deterministic fake forwards**
 
 Tests patch `forward_incremental` at the model boundary and assert:
 
@@ -394,19 +394,19 @@ assert runtime.draft_next_probs.equal(probs_from_that_same_forward)
 assert mapper.map_calls == expected_historical_ranges
 ```
 
-- [ ] **Step 5: Implement explicit init and refresh policies**
+- [x] **Step 5: Implement explicit init and refresh policies**
 
 For `mapped_native_frontier`, map target prompt slice `0:n-1`, run token `n`
 natively, and append its returned KV. For `accepted_only`, append mapped accepted
 proposal KV but resolve correction/bonus pending state without replacement. Reuse
 stored draft probabilities at the next proposal boundary.
 
-- [ ] **Step 6: Run all state-machine tests**
+- [x] **Step 6: Run all state-machine tests**
 
 Run: `.venv/bin/pytest tests/test_native_frontier_policy.py tests/test_pending_frontier.py tests/test_refresh_cache_length.py tests/test_rejection_rollback.py tests/test_bonus_frontier.py -q`
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/verifier_anchored_sd/spec_decode/hf_runtime.py src/verifier_anchored_sd/spec_decode/verifier_cache_refresh.py tests/test_native_frontier_policy.py tests/test_pending_frontier.py tests/test_refresh_cache_length.py

@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass
+from typing import Literal
 
 import torch
 
@@ -19,6 +20,9 @@ from ..evaluation import expected_accepted_length
 from .cache_state import CacheState, LayerKV, RotaryFactors
 from .target_to_draft_mapper import RidgeKVMapper
 from .verifier_cache_refresh import VerifierAnchoredCache
+
+InitMode = Literal["native", "legacy_mapped", "mapped_native_frontier"]
+RefreshPolicy = Literal["none", "full", "accepted_only"]
 
 
 def _concat_steps(steps: list[CacheState]) -> CacheState:
@@ -162,16 +166,29 @@ class QwenPairRuntime:
         *,
         temperature: float = 1.0,
         seed: int = 0,
-        init_mode: str = "mapped",
-        refresh: bool = True,
+        init_mode: str = "legacy_mapped",
+        refresh: bool | None = None,
+        refresh_policy: str | None = None,
     ):
         self.target, self.draft, self.mapper = target, draft, mapper
         self.temperature = temperature
         if temperature <= 0:
             raise ValueError("temperature must be positive")
-        if init_mode not in {"mapped", "native"}:
-            raise ValueError("init_mode must be mapped or native")
-        self.init_mode, self.refresh = init_mode, refresh
+        if init_mode == "mapped":
+            init_mode = "legacy_mapped"
+        if init_mode not in {"native", "legacy_mapped", "mapped_native_frontier"}:
+            raise ValueError(
+                "init_mode must be native, legacy_mapped, or mapped_native_frontier"
+            )
+        if refresh_policy is not None and refresh is not None:
+            raise ValueError("specify refresh_policy or legacy refresh, not both")
+        if refresh_policy is None:
+            refresh_policy = "full" if refresh is None or refresh else "none"
+        if refresh_policy not in {"none", "full", "accepted_only"}:
+            raise ValueError("refresh_policy must be none, full, or accepted_only")
+        self.init_mode: InitMode = init_mode
+        self.refresh_policy: RefreshPolicy = refresh_policy
+        self.refresh = refresh_policy != "none"
         self.generator = torch.Generator(device=next(draft.parameters()).device).manual_seed(seed)
         self.target_cache: CacheState | None = None
         self.anchored: VerifierAnchoredCache | None = None
@@ -209,12 +226,20 @@ class QwenPairRuntime:
             self.draft_next_probs = self._probs(native_full.logits, self.temperature)
             return
 
-        draft_rotary = self._draft_rotary(0, ids.shape[1])
-        self.anchored = VerifierAnchoredCache(self.target_cache, self.mapper, draft_rotary)
+        if self.init_mode == "legacy_mapped":
+            mapped_target = self.target_cache
+        else:
+            mapped_target = self.target_cache.slice(0, self.target_cache.seq_len - 1)
+        draft_rotary = self._draft_rotary(0, mapped_target.seq_len)
+        self.anchored = VerifierAnchoredCache(mapped_target, self.mapper, draft_rotary)
         draft_prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
+        if self.init_mode == "mapped_native_frontier":
+            draft_prefix = self.anchored.draft_cache.clone()
         query_ids = ids[:, -1:].to(next(self.draft.parameters()).device)
         query = forward_incremental(self.draft, query_ids, draft_prefix)
         self.draft_next_probs = self._probs(query.logits, self.temperature)
+        if self.init_mode == "mapped_native_frontier":
+            self.anchored.draft_cache.append(query.cache)
 
     def _sample(self, probs: torch.Tensor) -> int:
         return int(torch.multinomial(probs[0], 1, generator=self.generator).item())
@@ -228,17 +253,19 @@ class QwenPairRuntime:
         ids = torch.tensor([[token]], device=self.target_cache.layers[0].key.device)
         target_step = forward_incremental(self.target, ids, self.target_cache)
         self.target_cache.append(target_step.cache)
-        if self.refresh:
-            self.anchored.materialize_pending(
+        if self.refresh_policy == "full":
+            draft_next_probs = self.anchored.materialize_pending(
                 token, target_step.cache, self._draft_rotary(position, 1)
             )
         else:
-            self.anchored.pending = None
+            draft_next_probs = self.anchored.resolve_pending_native(token)
         self.target_next_probs = self._probs(target_step.logits, self.temperature)
-        prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
-        draft_ids = ids.to(next(self.draft.parameters()).device)
-        draft_step = forward_incremental(self.draft, draft_ids, prefix)
-        self.draft_next_probs = self._probs(draft_step.logits, self.temperature)
+        if draft_next_probs is None:
+            prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
+            draft_ids = ids.to(next(self.draft.parameters()).device)
+            draft_step = forward_incremental(self.draft, draft_ids, prefix)
+            draft_next_probs = self._probs(draft_step.logits, self.temperature)
+        self.draft_next_probs = draft_next_probs
 
     def propose(self, gamma: int) -> ProposalBlock:
         if gamma <= 0:
@@ -285,7 +312,7 @@ class QwenPairRuntime:
         if accepted:
             accepted_target = proposal.target_kv.slice(0, accepted)
             self.target_cache.append(accepted_target)
-            if self.refresh:
+            if self.refresh_policy in {"full", "accepted_only"}:
                 self.anchored.append_verified(
                     accepted_target, proposal.draft_rotary.slice(0, accepted)
                 )
@@ -298,8 +325,12 @@ class QwenPairRuntime:
             self.draft_next_probs = proposal.next_draft_probs
             return
         ids = torch.tensor([[frontier]], device=next(self.draft.parameters()).device)
-        native = forward_incremental(self.draft, ids, self.anchored.draft_cache).cache
-        self.anchored.append_pending(frontier, native)
+        native = forward_incremental(self.draft, ids, self.anchored.draft_cache)
+        self.anchored.append_pending(
+            frontier,
+            native.cache,
+            next_probs=self._probs(native.logits, self.temperature),
+        )
 
     def generate(self, prompt_ids: Sequence[int], max_new_tokens: int, gamma: int = 4) -> list[int]:
         if max_new_tokens <= 0:
