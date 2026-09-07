@@ -1,4 +1,4 @@
-"""Hard provenance gate between pair screening and E2 evaluation."""
+"""Hard provenance gate between target-alignment screening and E2 evaluation."""
 
 from __future__ import annotations
 
@@ -10,9 +10,13 @@ def validate_e2_artifacts(
     mapper_sha256: str,
     mapper_metadata_sha256: str,
 ) -> dict[str, str]:
-    """Validate that E2 uses the exact mapper, pair, and revisions that passed."""
-    if screen_result.get("gate", {}).get("status") != "pass":
-        raise RuntimeError("pair screen must pass before E2")
+    """Validate that E2 uses the exact target-aligned mapper/pair that was screened."""
+    target_status = screen_result.get("target_alignment", {}).get("gate", {}).get("status")
+    decision = screen_result.get("decision", {}).get("status")
+    if target_status != "support" or decision != "go_sd":
+        raise RuntimeError(
+            "target alignment must support the screened mapper before E2 (decision=go_sd)"
+        )
     requested = screen_result.get("requested_rows")
     completed = screen_result.get("completed_rows")
     if not isinstance(requested, int) or requested <= 0 or completed != requested:
