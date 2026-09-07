@@ -72,7 +72,7 @@ def target_alignment_rows(
     """Compare native and mapped draft proposals against the exact verifier.
 
     The speculative-decoding quantity of interest is verifier/proposal overlap, not
-    whether mapped state reconstructs the draft's native distribution.  Positive
+    whether mapped state reconstructs the draft's native distribution. Positive
     ``delta_target_alignment`` means the translated history moves the draft proposal
     distribution closer to the verifier on the same causal frontier.
     """
@@ -110,23 +110,15 @@ def target_alignment_rows(
             row.update(
                 {
                     "target_next_token_nll": float(-p[token].clamp_min(1e-12).log()),
-                    "native_next_token_nll": float(
-                        -q_native[token].clamp_min(1e-12).log()
-                    ),
-                    "mapped_next_token_nll": float(
-                        -q_mapped[token].clamp_min(1e-12).log()
-                    ),
+                    "native_next_token_nll": float(-q_native[token].clamp_min(1e-12).log()),
+                    "mapped_next_token_nll": float(-q_mapped[token].clamp_min(1e-12).log()),
                 }
             )
         rows.append(row)
     return rows
 
 
-def classify_transfer_gate(
-    ci_low: float,
-    ci_high: float,
-    threshold: float = 0.95,
-) -> str:
+def classify_transfer_gate(ci_low: float, ci_high: float, threshold: float = 0.95) -> str:
     """Apply the preregistered confidence-interval native-fidelity decision."""
     if not 0.0 <= ci_low <= ci_high <= 1.0:
         raise ValueError("transfer confidence interval must lie inside [0, 1]")
@@ -225,8 +217,7 @@ def summarize_transfer(
         "median_a_transfer": float(values.median()),
         "p05_a_transfer": float(torch.quantile(values, 0.05)),
         "min_a_transfer": float(values.min()),
-        "mean_kl_native_mapped": sum(float(row["kl_native_mapped"]) for row in rows)
-        / len(rows),
+        "mean_kl_native_mapped": sum(float(row["kl_native_mapped"]) for row in rows) / len(rows),
         "top1_agreement": sum(int(row["top1_agreement"]) for row in rows) / len(rows),
     }
     if all("next_token_nll_delta" in row for row in rows):
@@ -262,9 +253,7 @@ def summarize_target_alignment(
         raise ValueError("requested row count must be positive")
     if not rows:
         raise ValueError("at least one target-alignment row is required")
-    deltas = torch.tensor(
-        [float(row["delta_target_alignment"]) for row in rows], dtype=torch.float64
-    )
+    deltas = torch.tensor([float(row["delta_target_alignment"]) for row in rows], dtype=torch.float64)
     native = torch.tensor([float(row["a_target_native"]) for row in rows], dtype=torch.float64)
     mapped = torch.tensor([float(row["a_target_mapped"]) for row in rows], dtype=torch.float64)
     if not torch.isfinite(deltas).all():
@@ -341,7 +330,7 @@ def finalize_screen(
 
 
 def validate_screen_inputs(mapper_metadata: dict, screen_manifest: dict) -> None:
-    """Require a held-out capture compatible with a fitted directional mapper."""
+    """Require a held-out verifier capture compatible with target-alignment screening."""
     if mapper_metadata.get("pair") != screen_manifest.get("pair"):
         raise ValueError("mapper and screen describe different model pairs")
     source = mapper_metadata.get("source_model", {})
@@ -350,6 +339,13 @@ def validate_screen_inputs(mapper_metadata: dict, screen_manifest: dict) -> None
         raise ValueError("screen verifier contract differs from mapper calibration")
     if mapper_metadata.get("dtype") != screen_manifest.get("dtype"):
         raise ValueError("screen dtype differs from mapper calibration")
+    distribution = screen_manifest.get("target_distribution")
+    if not isinstance(distribution, dict) or distribution.get("storage_dtype") != "float32" or float(
+        distribution.get("temperature", float("nan"))
+    ) != 1.0:
+        raise ValueError(
+            "screen target distribution contract must use FP32 storage at temperature 1.0"
+        )
     validate_no_row_overlap(
         mapper_metadata.get("token_row_digests", []),
         screen_manifest.get("token_row_digests", []),
@@ -357,8 +353,7 @@ def validate_screen_inputs(mapper_metadata: dict, screen_manifest: dict) -> None
 
 
 def attention_output_cosines(
-    native_outputs: Sequence[torch.Tensor],
-    mapped_outputs: Sequence[torch.Tensor],
+    native_outputs: Sequence[torch.Tensor], mapped_outputs: Sequence[torch.Tensor]
 ) -> list[float]:
     """Return flattened cosine similarity for matching draft attention layers."""
     if len(native_outputs) != len(mapped_outputs) or not native_outputs:
