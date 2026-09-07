@@ -1,7 +1,11 @@
 import torch
 
 from verifier_anchored_sd.spec_decode.cache_state import CacheState, LayerKV, RotaryFactors
-from verifier_anchored_sd.spec_decode.hf_runtime import Forward, QwenPairRuntime
+from verifier_anchored_sd.spec_decode.hf_runtime import (
+    Forward,
+    QwenPairRuntime,
+    _model_input_device,
+)
 from verifier_anchored_sd.spec_decode.verifier_cache_refresh import VerifierAnchoredCache
 
 
@@ -87,3 +91,16 @@ def test_mapped_native_frontier_initialization_keeps_kv_from_logits_forward(monk
         kv(1, 7).layers[0].key,
     )
     assert torch.allclose(runtime.draft_next_probs, torch.softmax(torch.tensor([[0.0, 3.0]]), -1))
+
+
+def test_runtime_uses_embedding_device_for_accelerate_offload_models():
+    class Offloaded(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.offloaded_first = torch.nn.Parameter(torch.empty(1, device="meta"))
+            self.embedding = torch.nn.Embedding(4, 2)
+
+        def get_input_embeddings(self):
+            return self.embedding
+
+    assert _model_input_device(Offloaded()) == torch.device("cpu")

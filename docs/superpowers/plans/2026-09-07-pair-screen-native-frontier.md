@@ -537,34 +537,34 @@ git commit -m "feat: confirm mapped-cache task retention"
 - Consumes all previous CLIs and records their exact commands.
 - Produces resumable candidate result JSON and a human-readable decision record.
 
-- [ ] **Step 1: Add the frozen candidate matrix and orchestration scripts**
+- [x] **Step 1: Add the frozen candidate matrix and orchestration scripts**
 
 `run_pair_screen.sh` runs source capture, draft capture, fit, held-out verifier
 capture, and draft evaluation for both candidates. It accepts `HF_HUB_CACHE`,
 `CALIBRATION_TEXT`, and `EVAL_TEXT`; it never uses the evaluation file for fitting.
 
-- [ ] **Step 2: Add E2 orchestration with a screen gate check**
+- [x] **Step 2: Add E2 orchestration with a screen gate check**
 
 `run_native_frontier_e2.sh` reads the screen JSON and exits unless status is `pass`.
 It then runs the five-method pilot and prints only the mapper and refresh decisions.
 
-- [ ] **Step 3: Update project docs to supersede the old next experiment**
+- [x] **Step 3: Update project docs to supersede the old next experiment**
 
 Document Pair Selection -> Near-lossless Transfer -> Speculative Compatibility ->
 Native-Frontier Refresh, the exact stop rules, 16GB sequential limitations, and
 the distinction between legacy and structurally consistent methods.
 
-- [ ] **Step 4: Run complete static and CPU verification**
+- [x] **Step 4: Run complete static and CPU verification**
 
 Run: `.venv/bin/python -m compileall -q src bench training && .venv/bin/ruff check . && .venv/bin/pytest -q`
 Expected: zero compile errors, zero Ruff errors, all tests pass without warnings.
 
-- [ ] **Step 5: Install real-run extras and verify pinned dependencies**
+- [x] **Step 5: Install real-run extras and verify pinned dependencies**
 
 Run: `.venv/bin/python -m pip install -e '.[hf,kvbridge,dev]'`
 Expected: Transformers, Datasets, Accelerate, and pinned KVBridge import successfully.
 
-- [ ] **Step 6: Run a one-sequence real-model integration probe**
+- [x] **Step 6: Run a one-sequence real-model integration probe**
 
 Run the 4B to 1.7B pipeline with one 64-token calibration window, depth selection
 restricted to the integration probe, one held-out 64-token prefix, and CPU fitting.

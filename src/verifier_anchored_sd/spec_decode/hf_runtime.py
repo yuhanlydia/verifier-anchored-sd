@@ -25,6 +25,11 @@ InitMode = Literal["native", "legacy_mapped", "mapped_native_frontier"]
 RefreshPolicy = Literal["none", "full", "accepted_only"]
 
 
+def _model_input_device(model) -> torch.device:
+    """Return the device on which Accelerate expects model input IDs."""
+    return model.get_input_embeddings().weight.device
+
+
 def _concat_steps(steps: list[CacheState]) -> CacheState:
     if not steps:
         raise ValueError("cannot concatenate an empty KV step list")
@@ -189,7 +194,7 @@ class QwenPairRuntime:
         self.init_mode: InitMode = init_mode
         self.refresh_policy: RefreshPolicy = refresh_policy
         self.refresh = refresh_policy != "none"
-        self.generator = torch.Generator(device=next(draft.parameters()).device).manual_seed(seed)
+        self.generator = torch.Generator(device=_model_input_device(draft)).manual_seed(seed)
         self.target_cache: CacheState | None = None
         self.anchored: VerifierAnchoredCache | None = None
         self.target_next_probs: torch.Tensor | None = None
@@ -204,7 +209,7 @@ class QwenPairRuntime:
         return torch.softmax(logits[:, -1, :].float() / temperature, dim=-1)
 
     def _draft_rotary(self, start: int, length: int) -> RotaryFactors:
-        device = next(self.draft.parameters()).device
+        device = _model_input_device(self.draft)
         positions = torch.arange(start, start + length, device=device).unsqueeze(0)
         return capture_rotary_factors(self.draft, positions)
 
@@ -213,14 +218,14 @@ class QwenPairRuntime:
         self.expected_accepted_lengths = []
         self.block_emitted_lengths = []
         self.frontier_kinds = []
-        ids = torch.tensor([list(prompt_ids)], device=next(self.target.parameters()).device)
+        ids = torch.tensor([list(prompt_ids)], device=_model_input_device(self.target))
         if ids.shape[1] < 1:
             raise ValueError("prompt must contain at least one token")
         target_full = forward_incremental(self.target, ids)
         self.target_cache = target_full.cache
         self.target_next_probs = self._probs(target_full.logits, self.temperature)
         if self.init_mode == "native":
-            native_ids = ids.to(next(self.draft.parameters()).device)
+            native_ids = ids.to(_model_input_device(self.draft))
             native_full = forward_incremental(self.draft, native_ids)
             self.anchored = VerifierAnchoredCache.from_native(native_full.cache, self.mapper)
             self.draft_next_probs = self._probs(native_full.logits, self.temperature)
@@ -235,7 +240,7 @@ class QwenPairRuntime:
         draft_prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
         if self.init_mode == "mapped_native_frontier":
             draft_prefix = self.anchored.draft_cache.clone()
-        query_ids = ids[:, -1:].to(next(self.draft.parameters()).device)
+        query_ids = ids[:, -1:].to(_model_input_device(self.draft))
         query = forward_incremental(self.draft, query_ids, draft_prefix)
         self.draft_next_probs = self._probs(query.logits, self.temperature)
         if self.init_mode == "mapped_native_frontier":
@@ -262,7 +267,7 @@ class QwenPairRuntime:
         self.target_next_probs = self._probs(target_step.logits, self.temperature)
         if draft_next_probs is None:
             prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
-            draft_ids = ids.to(next(self.draft.parameters()).device)
+            draft_ids = ids.to(_model_input_device(self.draft))
             draft_step = forward_incremental(self.draft, draft_ids, prefix)
             draft_next_probs = self._probs(draft_step.logits, self.temperature)
         self.draft_next_probs = draft_next_probs
@@ -282,12 +287,12 @@ class QwenPairRuntime:
             q_rows.append(q[0])
             token = self._sample(q)
             tokens.append(token)
-            ids = torch.tensor([[token]], device=next(self.draft.parameters()).device)
+            ids = torch.tensor([[token]], device=_model_input_device(self.draft))
             step = forward_incremental(self.draft, ids, draft_cache)
             temp.append(step.cache)
             draft_cache.append(step.cache)
             q = self._probs(step.logits, self.temperature)
-        verify_ids = torch.tensor([tokens], device=next(self.target.parameters()).device)
+        verify_ids = torch.tensor([tokens], device=_model_input_device(self.target))
         verify = forward_incremental(self.target, verify_ids, self.target_cache)
         p_rows = [self.target_next_probs[0]]
         if gamma > 1:
@@ -324,7 +329,7 @@ class QwenPairRuntime:
             self.target_next_probs = proposal.next_target_probs
             self.draft_next_probs = proposal.next_draft_probs
             return
-        ids = torch.tensor([[frontier]], device=next(self.draft.parameters()).device)
+        ids = torch.tensor([[frontier]], device=_model_input_device(self.draft))
         native = forward_incremental(self.draft, ids, self.anchored.draft_cache)
         self.anchored.append_pending(
             frontier,

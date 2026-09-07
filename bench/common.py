@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch
 
+from verifier_anchored_sd.experiment_data import token_windows  # noqa: F401
 from verifier_anchored_sd.model_contracts import validate_tokenizer_pair
 
 
@@ -139,17 +140,6 @@ def iter_texts(text_file: str | None, *, limit: int) -> Iterator[str]:
         yield row["text"]
         limit -= 1
         if limit <= 0:
-            return
-
-
-def token_windows(tokenizer, texts, *, seq_len: int, count: int):
-    for text in texts:
-        ids = tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"][0]
-        if ids.numel() < seq_len:
-            continue
-        yield ids[:seq_len]
-        count -= 1
-        if count <= 0:
             return
 
 

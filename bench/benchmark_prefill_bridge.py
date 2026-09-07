@@ -136,21 +136,25 @@ def main():
                 draft_positions = target_positions.to(draft_device)
 
                 target_time = timed(
-                    lambda: forward_incremental(target, target_ids, capture_rotary=False),
+                    lambda ids=target_ids: forward_incremental(
+                        target, ids, capture_rotary=False
+                    ),
                     warmup=args.warmup,
                     repetitions=args.repetitions,
                     device=device,
                 )
                 draft_time = timed(
-                    lambda: forward_incremental(draft, draft_ids, capture_rotary=False),
+                    lambda ids=draft_ids: forward_incremental(
+                        draft, ids, capture_rotary=False
+                    ),
                     warmup=args.warmup,
                     repetitions=args.repetitions,
                     device=device,
                 )
 
-                def native_full():
-                    forward_incremental(target, target_ids, capture_rotary=False)
-                    forward_incremental(draft, draft_ids, capture_rotary=False)
+                def native_full(target_input=target_ids, draft_input=draft_ids):
+                    forward_incremental(target, target_input, capture_rotary=False)
+                    forward_incremental(draft, draft_input, capture_rotary=False)
 
                 native_time = timed(
                     native_full,
@@ -162,15 +166,17 @@ def main():
                 target_capture = forward_incremental(target, target_ids)
                 draft_rotary = capture_rotary_factors(draft, draft_positions)
                 map_time = timed(
-                    lambda: mapper.map(target_capture.cache, draft_rotary=draft_rotary),
+                    lambda cache=target_capture.cache, rotary=draft_rotary: mapper.map(
+                        cache, draft_rotary=rotary
+                    ),
                     warmup=args.warmup,
                     repetitions=args.repetitions,
                     device=device,
                 )
 
-                def bridge_full():
-                    out = forward_incremental(target, target_ids)
-                    receiver_rope = capture_rotary_factors(draft, draft_positions)
+                def bridge_full(target_input=target_ids, positions=draft_positions):
+                    out = forward_incremental(target, target_input)
+                    receiver_rope = capture_rotary_factors(draft, positions)
                     mapper.map(out.cache, draft_rotary=receiver_rope)
 
                 bridge_time = timed(
