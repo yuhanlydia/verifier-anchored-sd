@@ -1,0 +1,86 @@
+schema_version: 1
+protocol: student_readable_kv_subspace_2026-09-08
+
+pair:
+  target: Qwen/Qwen3-8B
+  draft: Qwen/Qwen3-4B
+  mapper: artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt
+  mapper_policy: reuse_existing_no_refit
+  dtype: bfloat16
+
+splits:
+  mapper_calibration: A_existing
+  subspace_fit: B_SUBSPACE_TEXT
+  intervention_eval: C_EVAL_TEXT
+  block_acceptance: D_E2_TEXT
+  exact_token_row_overlap_allowed: false
+
+subspace_fit:
+  prompts: 64
+  prefix_tokens: 512
+  gradient_smoke_prefixes: 4
+  objective: kl_p_target_q_student
+  max_rank: 64
+  benefit_eigenvalue_tol: 1.0e-10
+  random_seed: 0
+  statistics_device: cpu
+  statistics_dtype: float64
+  gradients_per_prefix:
+    - native_history_for_signed_benefit
+    - mapped_history_for_sensitivity
+
+basis_families:
+  - grad
+  - benefit_positive
+  - benefit_negative
+  - pca
+  - random
+
+intervention_eval:
+  prompts: 128
+  prefix_tokens: 1024
+  ranks: [4, 8, 16, 32, 64]
+  bootstrap_samples: 10000
+  mapped_soft_beta: [0.0, 0.25, 0.5, 0.75]
+  projected_delta_alpha: [0.25, 0.5, 1.0, 1.5]
+  delta_shrink_beta: [0.0, 0.25, 0.5, 0.75]
+  controls:
+    - pca_hard
+    - random_hard
+    - random_delta
+    - grad_orthogonal
+    - benefit_negative_hard
+  winner_allowed_families: [grad, benefit_positive]
+  winner_allowed_modes: [mapped_soft]
+  winner_gate:
+    vs_native_a_target_ci95_low: greater_than_zero
+    vs_full_mapped_a_target_ci95_low: greater_than_zero
+
+block_acceptance:
+  prompts: 64
+  prompt_tokens: 512
+  new_tokens: 128
+  gamma: 4
+  bootstrap_samples: 10000
+  policies:
+    - native_sd
+    - full_mapped_init_only
+    - full_mapped_accepted_only
+    - subspace_mapped_init_only
+    - subspace_mapped_accepted_only
+  primary_gate: subspace_mapped_init_only_minus_full_mapped_init_only_realized_mal
+  support_rule: paired_ci95_low_greater_than_zero
+  stop_rule: paired_ci95_high_less_than_zero
+  refresh_gate: subspace_mapped_accepted_only_minus_subspace_mapped_init_only_realized_mal
+
+hardware:
+  gpu_32gb:
+    gpu_memory_gib: 28
+    method_batch_size: 8
+  gpu_48gb:
+    gpu_memory_gib: 44
+    method_batch_size: 16
+  auto_quantization: false
+  auto_dtype_change: false
+  auto_rank_change: false
+  auto_model_change: false
