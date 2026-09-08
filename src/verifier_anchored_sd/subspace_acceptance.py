@@ -50,6 +50,39 @@ def classify_block_delta(ci_low: float, ci_high: float) -> str:
     return "inconclusive"
 
 
+def validate_data_source_disjointness(
+    result: dict,
+    mapper_metadata: dict,
+    *,
+    e2_input_sha256: str,
+) -> None:
+    """Reject D/E2 when it reuses the exact frozen file from A, B, or C.
+
+    Exact row-digest checks remain the finer-grained gate.  This file-level check
+    closes a second leakage path where one frozen file is reused with different
+    token windows and therefore happens not to repeat an exact row.
+    """
+    if not e2_input_sha256:
+        raise RuntimeError("E2 input file provenance is missing")
+    protocol = result.get("protocol")
+    subspace_metadata = result.get("subspace_metadata")
+    if not isinstance(protocol, dict) or not isinstance(subspace_metadata, dict):
+        raise RuntimeError("subspace winner lacks file provenance")
+    prior = {
+        "mapper_calibration": mapper_metadata.get("calibration_input_sha256"),
+        "subspace_fit": subspace_metadata.get("fit_input_sha256"),
+        "intervention_evaluation": protocol.get("evaluation_input_sha256"),
+    }
+    if any(not isinstance(value, str) or not value for value in prior.values()):
+        raise RuntimeError("subspace winner lacks complete file provenance")
+    reused = [name for name, value in prior.items() if value == e2_input_sha256]
+    if reused:
+        raise RuntimeError(
+            "E2 reuses the same frozen input file as prior experiment split(s): "
+            + ", ".join(reused)
+        )
+
+
 def _nonempty_digest_set(value, *, name: str) -> set[str]:
     if not isinstance(value, list) or not value:
         raise RuntimeError(f"subspace winner lacks {name} row provenance")
