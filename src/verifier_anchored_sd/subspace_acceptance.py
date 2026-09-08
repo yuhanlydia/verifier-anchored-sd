@@ -1,9 +1,53 @@
-"""Provenance gate from the subspace intervention screen to block-level SD."""
+"""Provenance and decision gates from subspace screening to block-level SD."""
 
 from __future__ import annotations
 
+import math
+
 from .experiment_artifacts import validate_no_row_overlap
 from .kv_subspace import InterventionSpec
+
+
+def acceptance_method_matrix() -> dict[str, dict[str, str]]:
+    """Return the frozen five-policy block-level comparison in stable order."""
+    return {
+        "native_sd": {
+            "mapper": "base",
+            "init_mode": "native",
+            "refresh_policy": "none",
+        },
+        "full_mapped_init_only": {
+            "mapper": "base",
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "none",
+        },
+        "full_mapped_accepted_only": {
+            "mapper": "base",
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "accepted_only",
+        },
+        "subspace_mapped_init_only": {
+            "mapper": "subspace",
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "none",
+        },
+        "subspace_mapped_accepted_only": {
+            "mapper": "subspace",
+            "init_mode": "mapped_native_frontier",
+            "refresh_policy": "accepted_only",
+        },
+    }
+
+
+def classify_block_delta(ci_low: float, ci_high: float) -> str:
+    """Classify a paired block-level method-minus-baseline confidence interval."""
+    if not math.isfinite(ci_low) or not math.isfinite(ci_high) or ci_low > ci_high:
+        raise ValueError("block-level confidence interval must be finite and ordered")
+    if ci_low > 0:
+        return "support"
+    if ci_high < 0:
+        return "stop"
+    return "inconclusive"
 
 
 def _nonempty_digest_set(value, *, name: str) -> set[str]:
@@ -23,10 +67,10 @@ def validate_subspace_winner(
 ) -> dict:
     """Return one frozen mapped-only winner and all B/C rows forbidden to E2.
 
-    The intervention sweep itself selects the configuration.  This function does
-    not re-rank candidates; it only verifies that the selected method was eligible,
-    is reproducibly bound to the supplied mapper/basis artifacts, and does not
-    require native draft history.
+    The intervention sweep itself selects the configuration. This function does not
+    re-rank candidates; it only verifies that the selected method was eligible, is
+    reproducibly bound to the supplied mapper/basis artifacts, and does not require
+    native draft history.
     """
     if result.get("decision", {}).get("status") != "go_e2":
         raise RuntimeError("subspace intervention result must have decision.status='go_e2'")
