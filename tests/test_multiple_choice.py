@@ -36,15 +36,37 @@ def test_floor_normalized_retention_requires_native_above_floor():
         normalized_retention(0.25, 0.25, random_floor=0.25)
 
 
-def test_confirmatory_eval_requires_a_passing_distribution_screen():
-    with pytest.raises(RuntimeError, match="did not pass"):
-        validate_screen_gate({"gate": {"status": "fail"}})
+def _supported_screen(native_fidelity: str = "fail"):
+    return {
+        "native_fidelity": {"gate": {"status": native_fidelity}},
+        "target_alignment": {"gate": {"status": "support"}},
+        "decision": {"status": "go_sd"},
+        "requested_rows": 128,
+        "completed_rows": 128,
+    }
 
-    validate_screen_gate(
-        {"gate": {"status": "pass"}, "requested_rows": 128, "completed_rows": 128}
-    )
+
+def test_confirmatory_eval_uses_target_alignment_not_native_fidelity():
+    # Native reconstruction may fail while mapping still moves the draft toward the verifier.
+    validate_screen_gate(_supported_screen(native_fidelity="fail"))
+
+    harm = _supported_screen()
+    harm["target_alignment"]["gate"]["status"] = "harm"
+    harm["decision"]["status"] = "stop_pair"
+    with pytest.raises(RuntimeError, match="target alignment"):
+        validate_screen_gate(harm)
+
+    legacy = {"gate": {"status": "pass"}, "requested_rows": 128, "completed_rows": 128}
+    with pytest.raises(RuntimeError, match="target alignment"):
+        validate_screen_gate(legacy)
+
+
+def test_confirmatory_eval_requires_complete_target_alignment_screen():
+    incomplete = _supported_screen()
+    incomplete["completed_rows"] = 17
     with pytest.raises(RuntimeError, match="complete"):
-        validate_screen_gate(
-            {"gate": {"status": "pass"}, "requested_rows": 128, "completed_rows": 17}
-        )
+        validate_screen_gate(incomplete)
+
+
+def test_diagnostic_override_allows_failed_or_legacy_screen():
     validate_screen_gate({"gate": {"status": "fail"}}, allow_failed=True)

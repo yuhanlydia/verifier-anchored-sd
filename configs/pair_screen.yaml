@@ -1,7 +1,13 @@
-schema_version: 1
-protocol: pair_screen_2026-09-07
+schema_version: 2
+protocol: target_alignment_pair_screen_2026-09-07
 
 models:
+  qwen3_32b:
+    id: Qwen/Qwen3-32B
+    revision: resolve_at_runtime
+  qwen3_14b:
+    id: Qwen/Qwen3-14B
+    revision: resolve_at_runtime
   qwen3_8b:
     id: Qwen/Qwen3-8B
     revision: b968826d9c46dd6066d109eabc6255188de91218
@@ -12,15 +18,24 @@ models:
     id: Qwen/Qwen3-1.7B
     revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
 
-candidates:
-  - name: qwen3_8b_to_4b
+stages:
+  stage_a:
+    name: qwen3_8b_to_4b_existing_mapper
     target: qwen3_8b
     draft: qwen3_4b
-    role: primary
-  - name: qwen3_4b_to_1p7b
+    refit_mapper: false
+    purpose: isolate_metric_correction
+  stage_b:
+    name: qwen3_32b_to_14b_directional_screen
+    target: qwen3_32b
+    draft: qwen3_14b
+    refit_mapper: true
+    purpose: independent_high_confidence_candidate
+  stress_control:
+    name: qwen3_4b_to_1p7b
     target: qwen3_4b
     draft: qwen3_1p7b
-    role: stress_control
+    purpose: known_weak_transfer_pair
 
 calibration:
   sequences: 128
@@ -37,20 +52,46 @@ screen:
   prompts: 128
   prefix_tokens: 1024
   bootstrap_samples: 10000
+  cluster_unit: source_document
   seed: 0
-  a_transfer_threshold: 0.95
-  pass_rule: ci_low_strictly_greater_than_threshold
-  fail_rule: ci_high_less_than_or_equal_to_threshold
-  inconclusive_expansion_prompts: 512
+  target_distribution:
+    storage_dtype: float32
+    temperature: 1.0
+  primary_gate:
+    metric: delta_target_alignment
+    definition: A_target_mapped_minus_A_target_native
+    support_rule: ci_low_strictly_greater_than_zero
+    harm_rule: ci_high_strictly_less_than_zero
+    inconclusive_rule: ci_crosses_zero
+    inconclusive_expansion_prompts: 512
+  native_fidelity_diagnostic:
+    metric: a_transfer
+    threshold: 0.95
+    meaning: near_lossless_native_draft_reconstruction_only
+    blocks_speculative_decoding: false
 
 confirmation:
   hellaswag_floor_normalized_retention_threshold: 0.95
-  expected_mal_confirmatory_threshold: 0.90
-  expected_mal_exploratory_threshold: 0.85
+  hellaswag_requires_target_alignment_support: true
+  speculative_e2_requires_target_alignment_support: true
+  corrected_expected_mal_confirmatory_threshold: 0.90
+  corrected_expected_mal_exploratory_threshold: 0.85
   accepted_only_support_rule: paired_ci_low_strictly_greater_than_zero
   accepted_only_stop_rule: paired_ci_high_strictly_less_than_zero
+  withdrawn_metric_note: old_overlap_product_expected_mal_from_2026_09_03_must_not_be_reused
 
 hardware:
   sequential_model_loading: true
-  gpu_memory_gib: 14
   mapper_fit_device: cuda
+  profiles:
+    gpu_32gb:
+      gpu_memory_gib: 28
+      exact_weight_dtype: bfloat16
+    gpu_48gb:
+      gpu_memory_gib: 44
+      exact_weight_dtype: bfloat16
+  qwen3_32b_to_14b:
+    cpu_offload_expected: true
+    minimum_host_ram_gib_recommended: 96
+    preferred_host_ram_gib: 128
+    automatic_quantization: false
