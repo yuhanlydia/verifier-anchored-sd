@@ -133,6 +133,33 @@ def test_delta_upper_bound_cannot_be_selected_even_if_score_is_best():
     assert winner["method"] == "benefit_r16_b0"
 
 
+def test_causal_control_cannot_be_selected_even_if_deployment_compatible_and_best():
+    candidates = {
+        "method": {
+            "method": "benefit_positive_mapped_soft_r16_b0.25",
+            "deployment_valid": True,
+            "causal_control": False,
+            "rank": 16,
+            "mean_a_target": 0.79,
+            "mean_kl_target": 0.28,
+            "vs_native": {"ci_low": 0.02},
+            "vs_full_mapped": {"ci_low": 0.03},
+        },
+        "random": {
+            "method": "random_mapped_soft_r16_b0",
+            "deployment_valid": True,
+            "causal_control": True,
+            "rank": 16,
+            "mean_a_target": 0.95,
+            "mean_kl_target": 0.05,
+            "vs_native": {"ci_low": 0.20},
+            "vs_full_mapped": {"ci_low": 0.21},
+        },
+    }
+
+    assert select_deployment_winner(candidates)["method"] == "benefit_positive_mapped_soft_r16_b0.25"
+
+
 def test_candidate_failing_native_gate_is_not_eligible():
     candidates = {
         "only": {
