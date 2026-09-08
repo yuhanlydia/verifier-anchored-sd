@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Direct 32GB/48GB runner for the student-readable KV subspace kill test.
-# The existing 8B->4B mapper is held fixed.  No automatic quantization, dtype
-# change, model substitution, or rank reduction is allowed.
+# The existing 8B->4B mapper is held fixed. No automatic quantization, dtype
+# change, model substitution, rank reduction, or low-VRAM fallback is allowed.
 
 : "${SUBSPACE_TEXT:?Set SUBSPACE_TEXT to a frozen basis-fit text/JSONL file}"
 : "${EVAL_TEXT:?Set EVAL_TEXT to a disjoint frozen intervention-eval file}"
@@ -17,6 +17,11 @@ SUBSPACE_PROMPTS="${SUBSPACE_PROMPTS:-64}"
 SUBSPACE_PREFIX_TOKENS="${SUBSPACE_PREFIX_TOKENS:-512}"
 EVAL_PROMPTS="${EVAL_PROMPTS:-128}"
 EVAL_PREFIX_TOKENS="${EVAL_PREFIX_TOKENS:-1024}"
+E2_PROMPTS="${E2_PROMPTS:-64}"
+E2_PROMPT_TOKENS="${E2_PROMPT_TOKENS:-512}"
+E2_NEW_TOKENS="${E2_NEW_TOKENS:-128}"
+E2_GAMMA="${E2_GAMMA:-4}"
+E2_LOW_VRAM="${E2_LOW_VRAM:-0}"
 MAX_RANK="${MAX_RANK:-64}"
 RANKS="${RANKS:-4,8,16,32,64}"
 BOOTSTRAP_SAMPLES="${BOOTSTRAP_SAMPLES:-10000}"
@@ -38,6 +43,7 @@ fi
 
 for value in "$GPU_MEMORY_GIB" "$METHOD_BATCH_SIZE" "$SUBSPACE_PROMPTS" \
              "$SUBSPACE_PREFIX_TOKENS" "$EVAL_PROMPTS" "$EVAL_PREFIX_TOKENS" \
+             "$E2_PROMPTS" "$E2_PROMPT_TOKENS" "$E2_NEW_TOKENS" "$E2_GAMMA" \
              "$MAX_RANK" "$BOOTSTRAP_SAMPLES" "$GRADIENT_SMOKE_PREFIXES"; do
   if ! [[ "$value" =~ ^[0-9]+$ ]] || [[ "$value" -le 0 ]]; then
     echo "numeric experiment settings must be positive integers (got $value)" >&2
@@ -47,6 +53,10 @@ done
 
 if [[ "$PRUNE_KV_SHARDS" != "0" && "$PRUNE_KV_SHARDS" != "1" ]]; then
   echo "PRUNE_KV_SHARDS must be 0 or 1" >&2
+  exit 2
+fi
+if [[ "$E2_LOW_VRAM" != "0" && "$E2_LOW_VRAM" != "1" ]]; then
+  echo "E2_LOW_VRAM must be 0 or 1" >&2
   exit 2
 fi
 
@@ -179,17 +189,6 @@ inventory = {
 atomic_write_json(result.parent / "artifact_inventory.json", inventory)
 PY
 
-if [[ "$PRUNE_KV_SHARDS" == "1" ]]; then
-  "$PYTHON" - "$FIT_DIR" "$EVAL_DIR" <<'PY'
-import shutil, sys
-from pathlib import Path
-for root in map(Path, sys.argv[1:]):
-    shard_root = root / "shards"
-    if shard_root.exists():
-        shutil.rmtree(shard_root)
-PY
-fi
-
 DECISION="$($PYTHON - "$RESULT" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["decision"]["status"])
@@ -201,7 +200,33 @@ case "$DECISION" in
     echo "GO_E2: a deployment-valid subspace winner beat BOTH native and full_mapped."
     echo "Winner is frozen in: $RESULT"
     if [[ -n "${E2_TEXT:-}" ]]; then
-      echo "E2_TEXT is set; run the frozen winner with the subspace acceptance protocol after reviewing docs/NEXT_STAGE_STUDENT_READABLE_SUBSPACE.md."
+      E2_OUTPUT="$RESULT_ROOT/qwen3_8b_to_4b_subspace_block_acceptance.json"
+      LOW_VRAM_ARGS=()
+      if [[ "$E2_LOW_VRAM" == "1" ]]; then
+        LOW_VRAM_ARGS+=(--low-vram)
+      fi
+      "$PYTHON" bench/eval_subspace_acceptance.py \
+        --winner-result "$RESULT" \
+        --selection-screen-dir "$EVAL_DIR" \
+        --mapper "$MAPPER" --mapper-metadata "$MAPPER_METADATA" \
+        --subspace-artifact "$BASIS" \
+        --text-file "$E2_TEXT" --output "$E2_OUTPUT" \
+        --prompts "$E2_PROMPTS" --prompt-tokens "$E2_PROMPT_TOKENS" \
+        --new-tokens "$E2_NEW_TOKENS" --gamma "$E2_GAMMA" \
+        --bootstrap-samples "$BOOTSTRAP_SAMPLES" \
+        --device cuda --dtype bfloat16 "${LOW_VRAM_ARGS[@]}"
+      "$PYTHON" - "$E2_OUTPUT" <<'PY'
+import json, sys
+r = json.load(open(sys.argv[1], encoding="utf-8"))
+print(json.dumps({"gates": r["gates"], "summary": r["summary"]}, indent=2, sort_keys=True))
+PY
+    else
+      cat >&2 <<EOF
+One-step subspace winner is frozen, but E2_TEXT is not set.
+Use a THIRD frozen data source D and rerun with:
+  export E2_TEXT=/path/to/disjoint_block_eval.jsonl
+The runner will verify A/B/C/D token-row disjointness before block evaluation.
+EOF
     fi
     ;;
   no_deployment_winner)
@@ -215,3 +240,16 @@ EOF
     exit 5
     ;;
 esac
+
+# Prune reconstructible large KV shards only after the optional D run has recovered
+# C's exact row provenance from the retained manifest.
+if [[ "$PRUNE_KV_SHARDS" == "1" ]]; then
+  "$PYTHON" - "$FIT_DIR" "$EVAL_DIR" <<'PY'
+import shutil, sys
+from pathlib import Path
+for root in map(Path, sys.argv[1:]):
+    shard_root = root / "shards"
+    if shard_root.exists():
+        shutil.rmtree(shard_root)
+PY
+fi
