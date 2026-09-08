@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Evaluate a broad KV subspace intervention matrix on held-out prefixes.
 
-The verifier is not loaded.  The program consumes held-out verifier KV/probability
+The verifier is not loaded. The program consumes held-out verifier KV/probability
 artifacts, one frozen 8B->4B mapper, and one frozen student-readable basis artifact.
-Different intervention caches for the same prefix are batched together for the
-single native 4B frontier forward so 32GB/48GB GPUs are used efficiently.
+Different intervention caches for the same prefix are materialized lazily in small
+method batches for the single native 4B frontier forward, so peak memory scales with
+``method_batch_size`` rather than the total method matrix.
 """
 
 from __future__ import annotations
@@ -153,7 +154,6 @@ def _method_matrix(ranks: list[int]) -> list[dict]:
                     }
                 )
 
-        # Generic low-rank controls.
         for family in ("pca", "random", "benefit_negative"):
             spec = InterventionSpec(mode="mapped_soft", family=family, rank=rank, beta=0.0)
             methods.append(
@@ -262,6 +262,17 @@ def main() -> None:
         artifact.metadata.get("fit_token_row_digests", []),
         screen_manifest.get("token_row_digests", [])[: args.prompts],
     )
+    c_input_sha = str(screen_manifest.get("input_sha256", ""))
+    if not c_input_sha:
+        raise RuntimeError("intervention evaluation screen lacks input-file provenance")
+    prior_file_shas = {
+        str(mapper_metadata.get("calibration_input_sha256", "")),
+        str(artifact.metadata.get("fit_input_sha256", "")),
+    }
+    if "" in prior_file_shas:
+        raise RuntimeError("mapper or subspace artifact lacks input-file provenance")
+    if c_input_sha in prior_file_shas:
+        raise RuntimeError("intervention evaluation reuses the same frozen input file as A or B")
 
     token_rows, token_metadata = load_token_rows(screen_root / "tokens.pt")
     if token_metadata.get("token_rows_digest") != screen_manifest.get("token_rows_digest"):
@@ -306,6 +317,7 @@ def main() -> None:
         "screen_manifest_sha256": sha256_file(screen_root / "manifest.json"),
         "evaluation_input_sha256": screen_manifest["input_sha256"],
         "evaluation_token_rows_digest": screen_manifest["token_rows_digest"],
+        "evaluation_token_row_digests": screen_manifest["token_row_digests"][: args.prompts],
         "prompts": args.prompts,
         "ranks": ranks,
         "method_batch_size": args.method_batch_size,
@@ -357,24 +369,24 @@ def main() -> None:
                 draft_rotary=native_history.rotary.to(mapper.device),
             ).to(input_device)
 
-        method_caches: list[tuple[dict, CacheState]] = []
-        for method in methods:
-            baseline = method.get("baseline")
-            if baseline == "native":
-                cache = native_history
-            elif baseline == "full_mapped":
-                cache = mapped_history
-            else:
-                cache = apply_intervention(
-                    native_history,
-                    mapped_history,
-                    artifact,
-                    method["spec"],
-                )
-            method_caches.append((method, cache))
+        for start_index in range(0, len(methods), args.method_batch_size):
+            batch_methods = methods[start_index : start_index + args.method_batch_size]
+            batch: list[tuple[dict, CacheState]] = []
+            for method in batch_methods:
+                baseline = method.get("baseline")
+                if baseline == "native":
+                    cache = native_history
+                elif baseline == "full_mapped":
+                    cache = mapped_history
+                else:
+                    cache = apply_intervention(
+                        native_history,
+                        mapped_history,
+                        artifact,
+                        method["spec"],
+                    )
+                batch.append((method, cache))
 
-        for start_index in range(0, len(method_caches), args.method_batch_size):
-            batch = method_caches[start_index : start_index + args.method_batch_size]
             batch_cache = _stack_caches([cache for _, cache in batch])
             frontier_ids = torch.full(
                 (len(batch), 1), frontier, device=input_device, dtype=torch.long
@@ -413,7 +425,9 @@ def main() -> None:
                         **metrics,
                     }
                 )
-            del batch_cache, frontier_ids, step, probs
+            del batch_cache, frontier_ids, step, probs, batch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         atomic_write_json(
             progress_path,
@@ -475,6 +489,8 @@ def main() -> None:
         candidates[name] = {
             "method": name,
             "deployment_valid": bool(method.get("deployment_valid", False)),
+            "mechanistic_upper_bound": bool(method.get("mechanistic_upper_bound", False)),
+            "causal_control": bool(method.get("causal_control", False)),
             "rank": int(method.get("rank", 0)),
             "mean_a_target": summary[name]["mean_a_target"],
             "mean_kl_target": summary[name]["mean_kl_target"],
@@ -504,7 +520,7 @@ def main() -> None:
         "winner": winner,
         "decision": {
             "status": "go_e2" if winner is not None else "no_deployment_winner",
-            "rule": "winner must beat native and full_mapped target overlap with paired 95% CI low > 0",
+            "rule": "primary grad/benefit mapped-only winner must beat native and full_mapped target overlap with paired 95% CI low > 0",
         },
         "elapsed_s": time.perf_counter() - start,
         "rows": rows,
