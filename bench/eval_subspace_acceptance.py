@@ -30,6 +30,7 @@ from verifier_anchored_sd.spec_decode.target_to_draft_mapper import RidgeKVMappe
 from verifier_anchored_sd.subspace_acceptance import (
     acceptance_method_matrix,
     classify_block_delta,
+    validate_data_source_disjointness,
     validate_subspace_winner,
 )
 
@@ -129,8 +130,14 @@ def main() -> None:
     mapper_metadata = json.loads(mapper_metadata_path.read_text(encoding="utf-8"))
     mapper_sha = sha256_file(mapper_path)
     subspace_sha = sha256_file(subspace_path)
+    e2_input_sha = sha256_file(args.text_file)
     if mapper_sha != mapper_metadata.get("checkpoint_sha256"):
         raise RuntimeError("block acceptance mapper checkpoint differs from mapper metadata")
+    validate_data_source_disjointness(
+        winner_result,
+        mapper_metadata,
+        e2_input_sha256=e2_input_sha,
+    )
 
     # Recover C's per-row provenance from its immutable manifest. C KV shards may
     # already have been pruned; the manifest/tokens remain small and sufficient.
@@ -235,7 +242,7 @@ def main() -> None:
             "beta": winner_contract["spec"].beta,
             "alpha": winner_contract["spec"].alpha,
         },
-        "evaluation_input_sha256": sha256_file(args.text_file),
+        "evaluation_input_sha256": e2_input_sha,
         "prompt_token_rows_digest": token_rows_digest(prompt_rows),
         "prompt_token_row_digests": prompt_row_digests,
         "prompts": args.prompts,
