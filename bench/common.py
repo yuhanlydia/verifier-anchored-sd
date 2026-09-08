@@ -86,18 +86,22 @@ def load_hf_pair(
     dtype: str = "bfloat16",
     *,
     low_vram: bool = False,
+    target_device: str | None = None,
+    draft_device: str | None = None,
     target_revision: str = "main",
     draft_revision: str = "main",
 ):
+    target_device = device if target_device is None else target_device
+    draft_device = device if draft_device is None else draft_device
     tokenizer = load_hf_tokenizer(target_id, revision=target_revision)
     draft_tokenizer = load_hf_tokenizer(draft_id, revision=draft_revision)
     validate_tokenizer_pair(tokenizer, draft_tokenizer)
-    if low_vram and torch.cuda.is_available() and device != "cpu":
+    if low_vram and torch.cuda.is_available() and target_device == draft_device and device != "cpu":
         # Keep exact BF16 weights; offload only reduces residency. This profile is
         # for smoke/feasibility runs, not for paper wall-clock gates.
         target = load_hf_model(
             target_id,
-            device,
+            target_device,
             dtype,
             revision=target_revision,
             gpu_memory_gib=6,
@@ -105,15 +109,15 @@ def load_hf_pair(
         )
         draft = load_hf_model(
             draft_id,
-            device,
+            draft_device,
             dtype,
             revision=draft_revision,
             gpu_memory_gib=4,
             offload_folder=".cache/vakv_offload_draft",
         )
     else:
-        target = load_hf_model(target_id, device, dtype, revision=target_revision)
-        draft = load_hf_model(draft_id, device, dtype, revision=draft_revision)
+        target = load_hf_model(target_id, target_device, dtype, revision=target_revision)
+        draft = load_hf_model(draft_id, draft_device, dtype, revision=draft_revision)
     if target.get_input_embeddings().num_embeddings < len(tokenizer):
         raise ValueError("target embedding table does not cover the shared tokenizer")
     if draft.get_input_embeddings().num_embeddings < len(tokenizer):
