@@ -11,10 +11,19 @@ from verifier_anchored_sd.spec_decode.cache_state import CacheState, LayerKV, Ro
 
 
 def _rotary(tokens: int, dim: int) -> RotaryFactors:
+    if dim % 2:
+        raise ValueError("test RoPE dimension must be even")
     positions = torch.arange(tokens, dtype=torch.float32).unsqueeze(1)
-    freqs = torch.arange(dim, dtype=torch.float32).unsqueeze(0) + 1.0
+    freqs = torch.arange(dim // 2, dtype=torch.float32).unsqueeze(0) + 1.0
     angles = 0.07 * positions * freqs
-    return RotaryFactors(torch.cos(angles), torch.sin(angles), interleaved=False)
+    # Non-interleaved rotate_half pairs the first and second halves.  A valid
+    # orthogonal RoPE rotation therefore repeats each angle across the pair.
+    cos_half, sin_half = torch.cos(angles), torch.sin(angles)
+    return RotaryFactors(
+        torch.cat((cos_half, cos_half), dim=-1),
+        torch.cat((sin_half, sin_half), dim=-1),
+        interleaved=False,
+    )
 
 
 def _cache(values: torch.Tensor, *, rotary: RotaryFactors) -> CacheState:
