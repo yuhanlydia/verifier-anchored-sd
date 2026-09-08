@@ -30,13 +30,22 @@ def _prompt(tokenizer, problem: str) -> list[int]:
     )
     messages = [{"role": "user", "content": content}]
     try:
-        return tokenizer.apply_chat_template(
+        encoded = tokenizer.apply_chat_template(
             messages, tokenize=True, add_generation_prompt=True, enable_thinking=False
         )
     except TypeError:
-        return tokenizer.apply_chat_template(
+        encoded = tokenizer.apply_chat_template(
             messages, tokenize=True, add_generation_prompt=True
         )
+    if hasattr(encoded, "__getitem__") and not isinstance(encoded, list):
+        encoded = encoded["input_ids"]
+    if hasattr(encoded, "tolist"):
+        encoded = encoded.tolist()
+    if encoded and isinstance(encoded[0], list):
+        encoded = encoded[0]
+    if not encoded or not all(isinstance(token, int) for token in encoded):
+        raise TypeError("chat template did not return a flat integer token-id list")
+    return encoded
 
 
 def _correct(text: str, answer: str) -> bool:
