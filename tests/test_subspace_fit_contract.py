@@ -185,7 +185,7 @@ def test_target_kl_loss_matches_hand_computed_distribution():
         torch.tensor(0.5 / 0.75)
     )
 
-    assert loss == pytest.approx(float(expected))
+    torch.testing.assert_close(loss, expected, atol=1e-6, rtol=1e-6)
 
 
 def test_gradient_coverage_rejects_zero_and_nonfinite_layer_head_kind():
