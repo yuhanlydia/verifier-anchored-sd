@@ -22,3 +22,4 @@ jobs:
           bash -n scripts/run_target_alignment_next.sh
           bash -n scripts/run_32b_to_14b_pair_screen.sh
           bash -n scripts/run_native_frontier_e2.sh
+          bash -n scripts/run_student_readable_subspace.sh
