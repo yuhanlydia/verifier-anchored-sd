@@ -25,9 +25,24 @@ class VerifierAnchoredCache:
         target_cache: CacheState,
         mapper: RidgeKVMapper,
         draft_rotary: RotaryFactors | None = None,
+        output_device: torch.device | str | None = None,
     ) -> None:
         self.mapper = mapper
-        self.draft_cache = mapper.map(target_cache, draft_rotary=draft_rotary)
+        # A mapped cache is consumed by the draft. When the caller does not pass an
+        # explicit output device, the draft RoPE factors are the safest source of
+        # truth because they are created on the draft input device. This keeps the
+        # branch compatible with resident, Accelerate/offload, and explicit-device
+        # runtimes without changing the scientific cache transformation.
+        if output_device is None and draft_rotary is not None:
+            output_device = draft_rotary.cos.device
+        self.output_device = output_device
+        source = target_cache if output_device is None else target_cache.to(output_device)
+        factors = (
+            draft_rotary
+            if output_device is None or draft_rotary is None
+            else draft_rotary.to(output_device)
+        )
+        self.draft_cache = mapper.map(source, draft_rotary=factors)
         self.pending: PendingFrontier | None = None
 
     @classmethod
@@ -35,6 +50,7 @@ class VerifierAnchoredCache:
         """Construct the Native-SD baseline without paying an unnecessary map."""
         state = cls.__new__(cls)
         state.mapper = mapper
+        state.output_device = None
         state.draft_cache = draft_cache
         state.pending = None
         return state
@@ -50,7 +66,13 @@ class VerifierAnchoredCache:
     ) -> None:
         if self.pending is not None:
             raise RuntimeError("materialize the pending frontier before appending verified KV")
-        self.draft_cache.append(self.mapper.map(target_tokens, draft_rotary=draft_rotary))
+        source = target_tokens if self.output_device is None else target_tokens.to(self.output_device)
+        factors = (
+            draft_rotary
+            if self.output_device is None or draft_rotary is None
+            else draft_rotary.to(self.output_device)
+        )
+        self.draft_cache.append(self.mapper.map(source, draft_rotary=factors))
 
     def append_pending(
         self,
@@ -92,7 +114,13 @@ class VerifierAnchoredCache:
             raise ValueError(f"expected pending token {self.pending.token_id}, got {token_id}")
         if target_token.seq_len != 1:
             raise ValueError("target frontier must contain exactly one token")
-        replacement = self.mapper.map(target_token, draft_rotary=draft_rotary)
+        source = target_token if self.output_device is None else target_token.to(self.output_device)
+        factors = (
+            draft_rotary
+            if self.output_device is None or draft_rotary is None
+            else draft_rotary.to(self.output_device)
+        )
+        replacement = self.mapper.map(source, draft_rotary=factors)
         self.draft_cache.replace_slice(self.pending.cache_index, replacement)
         next_probs = self.pending.next_probs
         self.pending = None
