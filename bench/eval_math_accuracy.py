@@ -102,6 +102,12 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=256)
     parser.add_argument("--gamma", type=int, default=4)
     parser.add_argument("--gpu-memory-gib", type=int, default=12)
+    parser.add_argument(
+        "--target-device", default="cuda", help="verifier device, e.g. cuda:0"
+    )
+    parser.add_argument(
+        "--draft-device", default="cuda", help="draft device, e.g. cuda:1"
+    )
     parser.add_argument("--mapper", required=True)
     parser.add_argument("--mapper-metadata")
     parser.add_argument("--output", default="results/debug_batch_2026-09-07/math500_pilot.json")
@@ -133,6 +139,8 @@ def main() -> None:
         "revisions": {"target": target_revision, "draft": draft_revision},
         "dtype": "bfloat16",
         "gpu_memory_gib": args.gpu_memory_gib,
+        "target_device": args.target_device,
+        "draft_device": args.draft_device,
         "max_new_tokens": args.max_new_tokens,
         "gamma": args.gamma,
         "methods": {},
@@ -144,10 +152,14 @@ def main() -> None:
     ):
         model = load_hf_model(
             model_id,
-            "cuda",
+            args.target_device if method == "pure_8b" else args.draft_device,
             "bfloat16",
             revision=revision,
-            gpu_memory_gib=args.gpu_memory_gib,
+            gpu_memory_gib=(
+                args.gpu_memory_gib
+                if args.target_device == args.draft_device
+                else None
+            ),
             offload_folder=output_path.parent / f"{method}_offload",
         )
         rows = []
@@ -185,11 +197,13 @@ def main() -> None:
         "cuda",
         "bfloat16",
         low_vram=True,
+        target_device=args.target_device,
+        draft_device=args.draft_device,
         target_revision=target_revision,
         draft_revision=draft_revision,
     )
     mapper = RidgeKVMapper.load(mapper_path, map_location="cpu").to(
-        "cuda", dtype=torch.bfloat16
+        draft.get_input_embeddings().weight.device, dtype=torch.bfloat16
     )
     rows = []
     for index, (prompt_ids, problem) in enumerate(zip(prompts, problems, strict=True)):

@@ -427,3 +427,18 @@ Does translated verifier state move the draft toward the verifier distribution?
 ```
 
 先把这个问题回答干净，再决定 verifier-anchored SD 是否继续。
+
+## Multi-GPU math pilot
+
+`bench/eval_math_accuracy.py` supports placing the verifier and draft on separate
+GPUs. On a host with at least two devices, use for example:
+
+```bash
+python bench/eval_math_accuracy.py \
+  --target-device cuda:0 --draft-device cuda:1 \
+  --mapper artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt
+```
+
+The runtime transfers mapped verifier KV to the draft device at the cache
+boundary. With one GPU, keep both devices as `cuda`; the low-VRAM CPU-offload
+profile remains the fallback.

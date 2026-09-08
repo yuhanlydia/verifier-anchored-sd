@@ -248,7 +248,12 @@ class QwenPairRuntime:
         else:
             mapped_target = self.target_cache.slice(0, self.target_cache.seq_len - 1)
         draft_rotary = self._draft_rotary(0, mapped_target.seq_len)
-        self.anchored = VerifierAnchoredCache(mapped_target, self.mapper, draft_rotary)
+        self.anchored = VerifierAnchoredCache(
+            mapped_target,
+            self.mapper,
+            draft_rotary,
+            output_device=_model_input_device(self.draft),
+        )
         draft_prefix = self.anchored.draft_cache.slice(0, self.anchored.seq_len - 1).clone()
         if self.init_mode == "mapped_native_frontier":
             draft_prefix = self.anchored.draft_cache.clone()
