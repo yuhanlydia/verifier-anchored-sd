@@ -92,7 +92,42 @@ class SubspaceBasisArtifact:
     def max_rank(self) -> int:
         return int(self.metadata["max_rank"])
 
+    @staticmethod
+    def _tensor_signature(tensor: torch.Tensor) -> tuple:
+        return (
+            tuple(tensor.shape),
+            str(tensor.dtype),
+            str(tensor.device),
+            int(tensor.data_ptr()),
+            int(tensor._version),
+        )
+
+    def _validation_signature(self) -> tuple:
+        families = sorted(set(self.bases) | set(self.eigenvalues) | set(self.valid_ranks))
+        return (
+            self.draft_layers,
+            self.kv_heads,
+            self.head_dim,
+            self.max_rank,
+            tuple(
+                (
+                    family,
+                    self._tensor_signature(self.bases[family]) if family in self.bases else None,
+                    self._tensor_signature(self.eigenvalues[family])
+                    if family in self.eigenvalues
+                    else None,
+                    self._tensor_signature(self.valid_ranks[family])
+                    if family in self.valid_ranks
+                    else None,
+                )
+                for family in families
+            ),
+        )
+
     def validate(self) -> None:
+        signature = self._validation_signature()
+        if getattr(self, "_validated_signature", None) == signature:
+            return
         if self.draft_layers <= 0 or self.kv_heads <= 0 or self.head_dim <= 0:
             raise ValueError("subspace geometry must be positive")
         if not 0 < self.max_rank <= self.head_dim:
@@ -148,6 +183,7 @@ class SubspaceBasisArtifact:
                                 f"basis family {family!r} is not orthonormal at "
                                 f"layer={layer}, kind={kind}, head={head}"
                             )
+        self._validated_signature = signature
 
     def save(self, path: str | Path) -> None:
         """Atomically serialize only JSON-safe metadata and plain CPU tensors."""
