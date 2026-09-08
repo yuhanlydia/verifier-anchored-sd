@@ -2,7 +2,7 @@
 
 Subspace bases are stored per draft layer, K/V kind, KV head and head dimension.
 Keys are always projected in RoPE-free content space; values are projected in their
-native value space.  Interventions never touch the causal frontier token: callers
+native value space. Interventions never touch the causal frontier token: callers
 apply them to historical cache only, then run the newest token through the draft
 model natively.
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import torch
@@ -61,13 +62,13 @@ class InterventionSpec:
 
 @dataclass
 class SubspaceBasisArtifact:
-    """In-memory collection of ordered orthonormal KV subspace bases.
+    """Ordered orthonormal KV subspace bases plus immutable provenance.
 
     ``bases[family]`` has shape ``[layers, 2, heads, head_dim, max_rank]`` where
-    kind 0 is K and kind 1 is V. ``eigenvalues[family]`` has the same leading
-    ``[layers, 2, heads]`` axes and a final ``max_rank`` axis. ``valid_ranks``
-    allows signed families such as positive-benefit eigenspaces to expose fewer
-    than ``max_rank`` usable directions for an individual layer/head/kind.
+    kind 0 is K and kind 1 is V. ``eigenvalues[family]`` has leading
+    ``[layers, 2, heads]`` axes and final ``max_rank``. ``valid_ranks`` permits
+    signed families such as positive-benefit eigenspaces to expose fewer than
+    ``max_rank`` usable directions for an individual layer/head/kind.
     """
 
     metadata: dict
@@ -114,7 +115,9 @@ class SubspaceBasisArtifact:
             values = self.eigenvalues[family]
             ranks = self.valid_ranks[family]
             if tuple(basis.shape) != expected_basis:
-                raise ValueError(f"basis family {family!r} has shape {tuple(basis.shape)}, expected {expected_basis}")
+                raise ValueError(
+                    f"basis family {family!r} has shape {tuple(basis.shape)}, expected {expected_basis}"
+                )
             if tuple(values.shape) != expected_values:
                 raise ValueError(f"eigenvalues for {family!r} have an invalid shape")
             if tuple(ranks.shape) != expected_ranks:
@@ -145,6 +148,57 @@ class SubspaceBasisArtifact:
                                 f"basis family {family!r} is not orthonormal at "
                                 f"layer={layer}, kind={kind}, head={head}"
                             )
+
+    def save(self, path: str | Path) -> None:
+        """Atomically serialize only JSON-safe metadata and plain CPU tensors."""
+        self.validate()
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(destination.name + ".tmp")
+        torch.save(
+            {
+                "schema_version": 1,
+                "metadata": dict(self.metadata),
+                "bases": {name: tensor.detach().float().cpu() for name, tensor in self.bases.items()},
+                "eigenvalues": {
+                    name: tensor.detach().to(dtype=torch.float64, device="cpu")
+                    for name, tensor in self.eigenvalues.items()
+                },
+                "valid_ranks": {
+                    name: tensor.detach().to(dtype=torch.int64, device="cpu")
+                    for name, tensor in self.valid_ranks.items()
+                },
+            },
+            temporary,
+        )
+        temporary.replace(destination)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "SubspaceBasisArtifact":
+        source = Path(path)
+        try:
+            payload = torch.load(source, map_location="cpu", weights_only=True)
+        except Exception as exc:
+            raise RuntimeError(f"failed to load subspace artifact {source}") from exc
+        if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+            raise RuntimeError(f"unsupported subspace artifact schema: {source}")
+        metadata = payload.get("metadata")
+        bases = payload.get("bases")
+        eigenvalues = payload.get("eigenvalues")
+        valid_ranks = payload.get("valid_ranks")
+        if not isinstance(metadata, dict) or not isinstance(bases, dict) or not isinstance(
+            eigenvalues, dict
+        ) or not isinstance(valid_ranks, dict):
+            raise RuntimeError(f"invalid subspace artifact payload: {source}")
+        if not all(isinstance(value, torch.Tensor) for value in bases.values()):
+            raise RuntimeError(f"subspace basis tensors are missing: {source}")
+        if not all(isinstance(value, torch.Tensor) for value in eigenvalues.values()):
+            raise RuntimeError(f"subspace eigenvalue tensors are missing: {source}")
+        if not all(isinstance(value, torch.Tensor) for value in valid_ranks.values()):
+            raise RuntimeError(f"subspace rank tensors are missing: {source}")
+        artifact = cls(metadata, bases, eigenvalues, valid_ranks)
+        artifact.validate()
+        return artifact
 
     def effective_rank(
         self,
@@ -185,8 +239,6 @@ def deterministic_random_basis(
             for head in range(heads):
                 matrix = torch.randn(head_dim, max_rank, generator=generator)
                 q, _ = torch.linalg.qr(matrix, mode="reduced")
-                # QR signs are deterministic for a fixed PyTorch build, but make the
-                # convention explicit so serialization / comparisons are stable.
                 dominant = q.abs().argmax(dim=0)
                 signs = torch.sign(q[dominant, torch.arange(max_rank)])
                 signs = torch.where(signs == 0, torch.ones_like(signs), signs)
@@ -211,9 +263,13 @@ def _validate_cache_pair(native: CacheState, mapped: CacheState, artifact: Subsp
         raise ValueError("native and mapped caches use different RoPE conventions")
     if native.rotary.cos.shape != mapped.rotary.cos.shape or native.rotary.sin.shape != mapped.rotary.sin.shape:
         raise ValueError("native and mapped caches use different RoPE shapes")
-    if not torch.allclose(native.rotary.cos.float().cpu(), mapped.rotary.cos.float().cpu(), atol=1e-6, rtol=1e-6):
+    if not torch.allclose(
+        native.rotary.cos.float().cpu(), mapped.rotary.cos.float().cpu(), atol=1e-6, rtol=1e-6
+    ):
         raise ValueError("native and mapped caches use different RoPE cosine factors")
-    if not torch.allclose(native.rotary.sin.float().cpu(), mapped.rotary.sin.float().cpu(), atol=1e-6, rtol=1e-6):
+    if not torch.allclose(
+        native.rotary.sin.float().cpu(), mapped.rotary.sin.float().cpu(), atol=1e-6, rtol=1e-6
+    ):
         raise ValueError("native and mapped caches use different RoPE sine factors")
 
 
@@ -262,8 +318,6 @@ def apply_intervention(
     if spec.family not in artifact.bases:
         raise KeyError(f"unknown basis family: {spec.family}")
 
-    # Preserve exact endpoint identities instead of introducing avoidable
-    # inverse-RoPE/re-RoPE roundoff when the requested method is the baseline.
     if spec.mode == "mapped_soft" and spec.beta == 1.0:
         return mapped.clone()
     if spec.mode == "delta_shrink" and spec.beta == 1.0:
@@ -314,12 +368,10 @@ def apply_intervention(
                 if spec.mode == "delta_projected":
                     output = native_tensor + float(spec.alpha) * projected_delta
                 elif spec.mode == "delta_shrink":
-                    output = (
-                        native_tensor
-                        + projected_delta
-                        + float(spec.beta) * (delta - projected_delta)
+                    output = native_tensor + projected_delta + float(spec.beta) * (
+                        delta - projected_delta
                     )
-                else:  # guarded by InterventionSpec.validate
+                else:
                     raise AssertionError("unreachable intervention mode")
             if not torch.isfinite(output).all():
                 raise RuntimeError("subspace intervention produced non-finite KV")
