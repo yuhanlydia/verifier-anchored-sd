@@ -92,18 +92,36 @@ def paired_method_difference(
     return result
 
 
-def select_deployment_winner(candidates: dict[str, dict]) -> dict | None:
-    """Select one mapped-only candidate after the preregistered dual-baseline gate.
+def _is_primary_method_candidate(candidate: dict) -> bool:
+    """Exclude controls and mechanism-only variants from automatic winner selection."""
+    if candidate.get("causal_control", False):
+        return False
+    spec = candidate.get("spec")
+    if isinstance(spec, dict):
+        # The scientific method family is decoder-gradient sensitivity or the
+        # signed positive-benefit subspace. PCA/random/negative/orthogonal remain
+        # controls even though some are technically deployable.
+        if spec.get("family") not in {"grad", "benefit_positive"}:
+            return False
+        if spec.get("mode") != "mapped_soft":
+            return False
+    return True
 
-    A candidate is eligible only if it is deployment-valid and its target-overlap
-    paired CI lower bound is strictly positive versus both pure native 4B and the
-    unfiltered full-mapped cache. Among eligible candidates: maximize mean target
-    overlap, then minimize target KL, then minimize rank, then method name for a
-    deterministic final tie break.
+
+def select_deployment_winner(candidates: dict[str, dict]) -> dict | None:
+    """Select one primary mapped-only candidate after the dual-baseline gate.
+
+    A candidate is eligible only if it is deployment-valid, is not a causal/control
+    method, and its target-overlap paired CI lower bound is strictly positive versus
+    both pure native 4B and the unfiltered full-mapped cache. Among eligible
+    candidates: maximize mean target overlap, then minimize target KL, then minimize
+    rank, then method name for a deterministic final tie break.
     """
     eligible = []
     for key, candidate in candidates.items():
         if not candidate.get("deployment_valid", False):
+            continue
+        if not _is_primary_method_candidate(candidate):
             continue
         vs_native = candidate.get("vs_native", {})
         vs_full = candidate.get("vs_full_mapped", {})
