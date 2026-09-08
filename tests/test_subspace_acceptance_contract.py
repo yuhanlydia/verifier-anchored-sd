@@ -1,6 +1,9 @@
 import pytest
 
-from verifier_anchored_sd.subspace_acceptance import validate_subspace_winner
+from verifier_anchored_sd.subspace_acceptance import (
+    validate_data_source_disjointness,
+    validate_subspace_winner,
+)
 
 
 def _result():
@@ -10,9 +13,11 @@ def _result():
         "protocol": {
             "mapper_checkpoint_sha256": "mapper-sha",
             "subspace_artifact_sha256": "basis-sha",
+            "evaluation_input_sha256": "eval-file-sha",
             "evaluation_token_row_digests": ["eval-a", "eval-b"],
         },
         "subspace_metadata": {
+            "fit_input_sha256": "fit-file-sha",
             "fit_token_row_digests": ["fit-a", "fit-b"],
         },
         "winner": {
@@ -76,3 +81,35 @@ def test_winner_contract_rejects_missing_eval_row_provenance():
 
     with pytest.raises(RuntimeError, match="row provenance"):
         validate_subspace_winner(result, mapper_sha256="mapper-sha", subspace_sha256="basis-sha")
+
+
+def test_e2_data_source_must_differ_from_mapper_basis_fit_and_selection_files():
+    result = _result()
+    mapper_metadata = {"calibration_input_sha256": "mapper-file-sha"}
+
+    validate_data_source_disjointness(
+        result,
+        mapper_metadata,
+        e2_input_sha256="third-file-sha",
+    )
+
+    for reused in ("mapper-file-sha", "fit-file-sha", "eval-file-sha"):
+        with pytest.raises(RuntimeError, match="same frozen input file"):
+            validate_data_source_disjointness(
+                result,
+                mapper_metadata,
+                e2_input_sha256=reused,
+            )
+
+
+def test_e2_data_source_requires_all_three_prior_file_digests():
+    result = _result()
+    mapper_metadata = {"calibration_input_sha256": "mapper-file-sha"}
+    result["subspace_metadata"].pop("fit_input_sha256")
+
+    with pytest.raises(RuntimeError, match="file provenance"):
+        validate_data_source_disjointness(
+            result,
+            mapper_metadata,
+            e2_input_sha256="third-file-sha",
+        )
