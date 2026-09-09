@@ -9,8 +9,10 @@ from verifier_anchored_sd.spec_decode.target_to_draft_mapper import fit_ridge_ma
 
 def _tiny_ridge():
     observations = {}
-    x = torch.tensor([[1.0], [2.0], [3.0], [4.0]])
-    y = torch.cat((x, x), dim=1)
+    x = torch.tensor(
+        [[1.0, 0.0], [2.0, 1.0], [3.0, 1.0], [4.0, 2.0], [5.0, 3.0]]
+    )
+    y = x.clone()
     for kind in ("k", "v"):
         observations[(0, 0, kind)] = (x, y)
     return fit_ridge_mapper(
