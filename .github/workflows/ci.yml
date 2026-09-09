@@ -24,3 +24,4 @@ jobs:
           bash -n scripts/run_native_frontier_e2.sh
           bash -n scripts/run_student_readable_subspace.sh
           bash -n scripts/run_paper_vs_subspace_suite.sh
+          bash -n scripts/run_paper_vs_subspace_strict.sh
