@@ -1,0 +1,86 @@
+schema_version: 1
+protocol: paper_vs_student_readable_subspace_2026-09-09
+
+pair:
+  target:
+    id: Qwen/Qwen3-8B
+    revision: b968826d9c46dd6066d109eabc6255188de91218
+  draft:
+    id: Qwen/Qwen3-4B
+    revision: 1cfa9a7208912126459214e8b04321603b3df60c
+  dtype: bfloat16
+
+splits:
+  A: mapper_calibration
+  B: mapper_selection
+  C: subspace_fit
+  D: subspace_and_mapper_final_eval
+  E: speculative_acceptance
+  rule: all frozen input files and exact token rows must be disjoint
+
+ridge:
+  k_sweep: [8, 12, 16, 20]
+  lambda: 0.01
+  selection_ridge: 0.000001
+  content_space_keys: true
+  matched_head_control: true
+  paper_full_head: true
+  accumulation_dtype: float32
+  accumulation_device: cuda
+
+profiles:
+  pilot:
+    calibration_sequences: 128
+    calibration_tokens: 1024
+    calibration_stride: 4
+    selection_sequences: 32
+    mapper_eval_prompts: 128
+    mapper_eval_tokens: 1024
+    mlp_profile: pilot
+    mlp_sequences: 32
+    paper_reproduction_claim: false
+  paper:
+    calibration_sequences: 500
+    calibration_tokens: 1024
+    calibration_stride: 4
+    selection_sequences: 64
+    mapper_eval_prompts: 128
+    mapper_eval_tokens: 1024
+    mlp_profile: paper
+    mlp_sequences: 500
+    paper_reproduction_claim: true
+
+paper_mlp:
+  input_support: full_head_same_selected_layers_as_best_full_head_ridge
+  hidden_dims: [1024, 1024]
+  activation: relu
+  optimizer: adam
+  learning_rate: 0.001
+  epochs: 20
+  batch_size: 4096
+  objective: mse
+  independent_per_receiver_layer_head_kv_kind: true
+
+subspace:
+  base_mapper: strongest_linear_mapper_selected_on_B
+  fit_prompts: 64
+  fit_tokens: 512
+  eval_prompts: 128
+  eval_tokens: 1024
+  ranks: [4, 8, 16, 32, 64]
+  basis_families: [grad, benefit_positive, pca, random, benefit_negative]
+  mapped_soft_beta: [0.0, 0.25, 0.5, 0.75, 1.0]
+  delta_alpha: [0.25, 0.5, 1.0, 1.5]
+  delta_shrink_beta: [0.0, 0.25, 0.5, 0.75, 1.0]
+  bootstrap_samples: 10000
+
+primary_metric:
+  name: verifier_proposal_overlap
+  formula: 1-TV(p_target,q_method)
+
+interpretation:
+  full_head_beats_matched: matched_head_support_was_too_restrictive
+  mlp_beats_full_head: nonlinear_mapper_capacity_or_error_placement_matters
+  subspace_beats_native_and_full_head: student_readable_transfer_supported
+  subspace_beats_mlp_on_same_D_rows: explicit_student_readability_beats_passive_nonlinear_error_repair
+  pca_or_random_matches_subspace: generic_compression_regularization_not_student_specific
