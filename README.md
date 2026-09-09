@@ -25,32 +25,20 @@ export CALIBRATION_TEXT=/data/A_calibration.jsonl
 export MAPPER_EVAL_TEXT=/data/B_mapper_selection.jsonl
 export SUBSPACE_TEXT=/data/C_subspace_fit.jsonl
 export EVAL_TEXT=/data/D_final_eval.jsonl
-# export E2_TEXT=/data/E_block_acceptance.jsonl  # only needed after a frozen winner
+# export E2_TEXT=/data/E_block_acceptance.jsonl  # only after a frozen winner
 export SUITE_PROFILE=pilot
 export GPU_MEMORY_GIB=28       # 32GB; use 44 on a 48GB card
 export METHOD_BATCH_SIZE=8     # use 16 on 48GB if desired
 bash scripts/run_paper_vs_subspace_suite.sh
 ```
 
-The runner evaluates:
-
-```text
-Native 4B
-Matched-head ridge: k = 8,12,16,20
-Paper Full-Head ridge: k = 8,12,16,20
-Paper nonlinear MLP on the best Full-Head k
-Student-readable grad / signed-benefit subspaces
-PCA / random / orthogonal / negative-benefit controls
-Speculative block acceptance only after a frozen deployment-valid winner
-```
-
-All final mapper/subspace comparisons are repeated on the same held-out split D. The primary metric is verifier/proposal overlap:
+The runner evaluates native 4B, matched-head ridge and paper Full-Head ridge at `k=8,12,16,20`, the paper nonlinear MLP on the best Full-Head `k`, and the student-readable gradient / signed-benefit subspaces with PCA, random, orthogonal and negative-benefit controls. Final mapper/subspace comparisons are repeated on the same held-out split D. The primary metric is:
 
 ```text
 A_target = 1 - TV(p_8B, q_4B_method)
 ```
 
-A subspace claim requires paired document-cluster bootstrap evidence against native 4B, the strongest linear mapper, and—when present—the paper MLP. Pilot MLP results are capacity diagnostics only; `SUITE_PROFILE=paper` enforces the paper's 500 x 1024 calibration, stride 4, 1024-1024 MLP, Adam 1e-3, 20 epochs, batch 4096, and MSE.
+`SUITE_PROFILE=pilot` is the first kill test. `SUITE_PROFILE=paper` enforces the paper MLP profile: 500 x 1,024 calibration, stride 4, hidden 1024 -> 1024, Adam 1e-3, 20 epochs, batch 4096, MSE.
 
 ---
 
@@ -233,18 +221,95 @@ reason to silently quantize or change the pair.
 
 ## Native-frontier E2
 
-Only `decision.status=go_sd` may enter E2. `run_native_frontier_e2.sh` compares
-native SD, mapped/native-frontier initialization, accepted-only historical refresh,
-and legacy controls. The newest causal frontier remains native in the primary
-methods.
+Only a target-alignment `support` result with `decision.status == go_sd` may enter
+confirmatory E2.
 
-## Student-readable subspace experiment
-
-The dedicated subspace design and earlier direct runner remain available at:
+Primary method matrix:
 
 ```text
-docs/NEXT_STAGE_STUDENT_READABLE_SUBSPACE.md
-scripts/run_student_readable_subspace.sh
+native_sd
+mapped_init_only       # mapped history + native frontier
+mapped_accepted_only   # accepted historical KV refreshed; frontier remains native
 ```
 
-Use the new paper-vs-subspace suite above for reviewer-safe baseline comparison.
+Legacy full-refresh variants remain diagnostic only.
+
+Run:
+
+```bash
+export SCREEN_RESULT=/path/to/target_alignment_result.json
+export MAPPER=/path/to/the_exact_screened_mapper.pt
+export EVAL_TEXT=/path/to/third_disjoint_e2.jsonl
+export LOW_VRAM=0
+bash scripts/run_native_frontier_e2.sh
+```
+
+For 8B+4B on 32/48GB, prefer resident inference. Set `LOW_VRAM=1` only after a real
+OOM. Do not mix CPU-offload wall-clock with resident systems numbers.
+
+## Task confirmation
+
+HellaSwag confirmation is secondary and also requires target-alignment support. It
+cannot rescue a pair for which mapped state significantly moves the draft away from
+the verifier.
+
+## Metric validity note
+
+The old `results/e2_matched_16gb_resident.json` explicitly withdraws the original
+2026-09-03 overlap-product expected-MAL estimate on sampled autoregressive paths.
+Do not reuse those old expected-MAL values or that old formula.
+
+The current runtime contains a different conditional-on-sampled-proposal estimator
+based on actual sampled proposal token acceptance probabilities. It may be reported
+as a secondary E2 metric, but old and new estimates are not interchangeable.
+
+## Current stop rules
+
+- target alignment `support` -> allow native-frontier E2;
+- target alignment `harm` -> stop that pair;
+- target alignment `inconclusive` -> expand held-out clusters only;
+- incomplete/OOM -> debug execution, never interpret partial metrics;
+- no acceptance residual, one-step-TV training, block-acceptance training, RL, or
+  GRPO until a pair receives `go_sd` and native-frontier E2 establishes a positive
+  refresh effect.
+
+## Debug contract
+
+The testing agent must stop on token/cache/probability row mismatch, model revision
+mismatch, tokenizer mismatch, vocabulary mismatch, invalid probabilities, frontier
+provenance mismatch, artifact contamination, calibration/evaluation overlap, OOM, or
+use of the withdrawn old expected-MAL formula.
+
+See `docs/NEXT_STAGE_TARGET_ALIGNMENT.md` for the complete ten-condition STOP
+contract and `RUN_REPORT.md` requirements.
+
+## Setup and CPU verification
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[hf,kvbridge,dev]'
+
+python -m compileall -q src bench training
+pytest -q
+bash -n scripts/run_target_alignment_next.sh
+bash -n scripts/run_32b_to_14b_pair_screen.sh
+bash -n scripts/run_native_frontier_e2.sh
+bash -n scripts/run_student_readable_subspace.sh
+bash -n scripts/run_paper_vs_subspace_suite.sh
+```
+
+Do not start a scientific GPU run unless all CPU/shell checks pass.
+
+## Historical provenance
+
+The older 16GB/full-head/matched-head experiments and their negative 4B -> 1.7B
+results remain documented in:
+
+```text
+docs/EXPERIMENT_16GB_2026-09-03.md
+docs/SMOKE_RESULTS_16GB.md
+docs/PAIR_SCREEN_2026-09-07.md
+```
+
+Those files are evidence records, not the current execution protocol.
