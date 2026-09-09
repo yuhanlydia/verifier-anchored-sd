@@ -25,6 +25,7 @@ ridge:
   content_space_keys: true
   matched_head_control: true
   paper_full_head: true
+  selection_data_rule: matched_and_full_head_use_all_A_for_layer_selection
   accumulation_dtype: float32
   accumulation_device: cuda
 
@@ -33,7 +34,7 @@ profiles:
     calibration_sequences: 128
     calibration_tokens: 1024
     calibration_stride: 4
-    selection_sequences: 32
+    selection_sequences: 128
     mapper_eval_prompts: 128
     mapper_eval_tokens: 1024
     mlp_profile: pilot
@@ -43,7 +44,7 @@ profiles:
     calibration_sequences: 500
     calibration_tokens: 1024
     calibration_stride: 4
-    selection_sequences: 64
+    selection_sequences: 500
     mapper_eval_prompts: 128
     mapper_eval_tokens: 1024
     mlp_profile: paper
@@ -79,7 +80,7 @@ primary_metric:
   formula: 1-TV(p_target,q_method)
 
 interpretation:
-  full_head_beats_matched: matched_head_support_was_too_restrictive
+  full_head_beats_matched: cross_head_feature_support_is_useful_under_matched_selection_data
   mlp_beats_full_head: nonlinear_mapper_capacity_or_error_placement_matters
   subspace_beats_native_and_full_head: student_readable_transfer_supported
   subspace_beats_mlp_on_same_D_rows: explicit_student_readability_beats_passive_nonlinear_error_repair
