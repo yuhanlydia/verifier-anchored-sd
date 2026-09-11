@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-11T06:38:30.853808+00:00",
+  "status": "running",
+  "stage": "D_subspace_interventions",
+  "completed_prompts": 42,
+  "requested_prompts": 128,
+  "evaluation_elapsed_s": 1284.453539490234,
+  "process_observation": "63120       22:10 00:22:51 Rl   /root/verifier-anchored-sd/.venv/bin/python bench/eval_subspace_interventions.py --screen-dir artifacts/paper_vs_subspace_2026-09-09/subspace/eval_screen_n128_l1024 --mapper artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt --mapper-metadata artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt.json --subspace-artifact artifacts/paper_vs_subspace_2026-09-09/subspace/student_readable_basis.pt --output results/paper_vs_subspace_2026-09-09/subspace/qwen3_8b_to_4b_subspace_interventions.json --prompts 128 --ranks 4,8,16,32,64 --method-batch-size 8 --selection-policy exploratory --bootstrap-samples 10000 --device cuda --mapper-device cuda --dtype bfloat16 --gpu-memory-gib 20",
+  "selection_policy": "exploratory",
+  "performance_gates": "advisory; no accuracy, gain or confidence-interval cutoff stops the suite",
+  "scientific_result_status": "incomplete; no final D conclusion or E acceptance result yet",
+  "completed_outputs": [
+    "linear_mapper_selection.json",
+    "mapper_selection_B/full_k12.json",
+    "mapper_selection_B/full_k16.json",
+    "mapper_selection_B/full_k20.json",
+    "mapper_selection_B/full_k8.json",
+    "mapper_selection_B/matched_k12.json",
+    "mapper_selection_B/matched_k16.json",
+    "mapper_selection_B/matched_k20.json",
+    "mapper_selection_B/matched_k8.json",
+    "mapper_selection_B/paper_mlp_selected_k.json",
+    "subspace/smoke/interventions.json"
+  ],
+  "pending": [
+    "complete all 128 D subspace prompts",
+    "freeze deployment candidate and evaluate E block acceptance",
+    "complete Full-Head and MLP final D comparisons",
+    "publish complete final results and provenance"
+  ],
+  "note": "This is a live progress snapshot, not a completed experiment result. Complete B sweep and mapper/basis metadata have already been published."
+}
