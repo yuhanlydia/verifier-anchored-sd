@@ -9,13 +9,13 @@ from pathlib import Path
 
 root = Path("/root/verifier-anchored-sd")
 os.chdir(root)
-run = root / "results/paper_vs_subspace_2026-09-09/run_2026-09-11/attempt_04_E_balanced_offload"
+run = root / "results/paper_vs_subspace_2026-09-09/run_2026-09-11/attempt_05_E_high_residency_offload"
 run.mkdir(parents=True, exist_ok=True)
 status_path = run / "status.json"
 status = {
     "status": "starting",
     "started_utc": datetime.now(timezone.utc).isoformat(),
-    "reason": "resume after profiling conservative offload; exact BF16 with 10/7 GiB GPU residency",
+    "reason": "resume after measuring 10/7 GiB throughput; exact BF16 with 12/8 GiB GPU residency",
     "command": ["bash", "data/paper_vs_subspace_2026-09-11/resume_after_D.sh"],
     "scientific_parameters_changed": False,
     "residency_changed": True,

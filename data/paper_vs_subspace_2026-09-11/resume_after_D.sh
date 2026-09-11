@@ -30,7 +30,7 @@ done
   --output "$ACCEPTANCE_RESULT" \
   --prompts 64 --prompt-tokens 512 --new-tokens 128 --gamma 4 \
   --bootstrap-samples "$BOOTSTRAP_SAMPLES" --device cuda --dtype bfloat16 --low-vram \
-  --target-gpu-memory-gib 10 --draft-gpu-memory-gib 7
+  --target-gpu-memory-gib 12 --draft-gpu-memory-gib 8
 
 mkdir -p "$FINAL_DIR"
 "$PYTHON" bench/eval_mapper_alignment.py \
