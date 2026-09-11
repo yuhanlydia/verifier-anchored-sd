@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "snapshot_utc": "2026-09-11T03:12:17.503178+00:00",
+  "status": "in_progress",
+  "scientific_results_complete": false,
+  "base_commit": "fcb4064bc86d66601653f6cccfc1a67ec1708865",
+  "calibration": {
+    "source": {
+      "completion": {
+        "complete": true,
+        "count": 128,
+        "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+        "token_rows_digest": "6e782b00903344fbcadf668c8164f41cddef4617af25e914a1ee4c4eab7f0059"
+      },
+      "manifest_sha256": "be512b6dd6ac2805d3070be9d6841847d1b507749d455f6c8e146f1cda6ff648"
+    },
+    "draft": {
+      "completion": {
+        "complete": true,
+        "count": 128,
+        "model_revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+        "token_rows_digest": "6e782b00903344fbcadf668c8164f41cddef4617af25e914a1ee4c4eab7f0059"
+      },
+      "manifest_sha256": "1e29ce4d24a7fa25429012e10e61281444d59e111824419b24b4687588d4b1ad"
+    }
+  },
+  "active_process": {
+    "pid": 12450,
+    "command": "/root/verifier-anchored-sd/.venv/bin/python bench/fit_sequential_mapper.py --pair-dir artifacts/paper_vs_subspace_2026-09-09/calibration --output artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k8.pt --k 8 --lambda 0.01 --selection-ridge 0.000001 --selection-sequences 128 --accumulation-device cuda --selection-layer-block 1 --fit-layer-block 4"
+  },
+  "configuration": {
+    "CALIBRATION_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/A.jsonl",
+    "MAPPER_EVAL_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/B.jsonl",
+    "SUBSPACE_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/C.jsonl",
+    "EVAL_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/D.jsonl",
+    "E2_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/E.jsonl",
+    "GPU_MEMORY_GIB": "20",
+    "METHOD_BATCH_SIZE": "8",
+    "SUITE_PROFILE": "pilot",
+    "PYTHON": "/root/verifier-anchored-sd/.venv/bin/python",
+    "OMP_NUM_THREADS": "8",
+    "MKL_NUM_THREADS": "8"
+  },
+  "cpu_tests_passed": 161,
+  "note": "Both calibration captures complete. First matched ridge k=8 is fitting; no mapper-selection or final D metrics available yet."
+}
+
