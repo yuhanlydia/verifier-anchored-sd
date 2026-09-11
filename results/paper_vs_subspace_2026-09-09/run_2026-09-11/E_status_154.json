@@ -1,0 +1,27 @@
+{
+  "status": "running",
+  "completed_rows": 154,
+  "requested_rows": 320,
+  "method_counts": {
+    "native_sd": 64,
+    "full_mapped_init_only": 64,
+    "full_mapped_accepted_only": 26
+  },
+  "scientific_parameters": {
+    "prompts": 64,
+    "prompt_tokens": 512,
+    "new_tokens": 128,
+    "gamma": 4,
+    "bootstrap_samples": 10000,
+    "dtype": "bfloat16",
+    "verifier_model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "draft_model_revision": "1cfa9a7208912126459214e8b04321603b3df60"
+  },
+  "residency_parameters": {
+    "low_vram": true,
+    "target_gpu_memory_gib": 12,
+    "draft_gpu_memory_gib": 8
+  },
+  "output_progress_file": "results/paper_vs_subspace_2026-09-09/subspace/qwen3_8b_to_4b_subspace_block_acceptance.json.progress.json",
+  "note": "Residency-only setting; no scientific parameter was changed. Full JSON will be published after completion."
+}
