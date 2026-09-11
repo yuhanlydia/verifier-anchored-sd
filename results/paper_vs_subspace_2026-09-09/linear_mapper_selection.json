@@ -1,0 +1,117 @@
+{
+  "best_full_head": {
+    "a_target": 0.7453617388382554,
+    "delta_target": -0.028792748227715492,
+    "k": 8,
+    "kl_target": 0.5097460038998376,
+    "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt",
+    "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt.json",
+    "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k8.json",
+    "support": "full",
+    "top1_target": 0.75
+  },
+  "best_linear": {
+    "a_target": 0.7453617388382554,
+    "delta_target": -0.028792748227715492,
+    "k": 8,
+    "kl_target": 0.5097460038998376,
+    "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt",
+    "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt.json",
+    "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k8.json",
+    "support": "full",
+    "top1_target": 0.75
+  },
+  "rows": [
+    {
+      "a_target": 0.7438735263422132,
+      "delta_target": -0.030280960723757744,
+      "k": 12,
+      "kl_target": 0.4893951686478486,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k12.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k12.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k12.json",
+      "support": "full",
+      "top1_target": 0.7421875
+    },
+    {
+      "a_target": 0.7184761664830148,
+      "delta_target": -0.055678320582956076,
+      "k": 16,
+      "kl_target": 0.5847063654720497,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k16.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k16.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k16.json",
+      "support": "full",
+      "top1_target": 0.7265625
+    },
+    {
+      "a_target": 0.6966402945108712,
+      "delta_target": -0.07751419255509973,
+      "k": 20,
+      "kl_target": 0.6869572782182445,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k20.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k20.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k20.json",
+      "support": "full",
+      "top1_target": 0.6953125
+    },
+    {
+      "a_target": 0.7453617388382554,
+      "delta_target": -0.028792748227715492,
+      "k": 8,
+      "kl_target": 0.5097460038998376,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/full_head_ridge/k8.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/full_k8.json",
+      "support": "full",
+      "top1_target": 0.75
+    },
+    {
+      "a_target": 0.7301727156154811,
+      "delta_target": -0.04398177145048976,
+      "k": 12,
+      "kl_target": 0.5797350579449088,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k12.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k12.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/matched_k12.json",
+      "support": "matched",
+      "top1_target": 0.7265625
+    },
+    {
+      "a_target": 0.7373074106872082,
+      "delta_target": -0.03684707637876272,
+      "k": 16,
+      "kl_target": 0.538367184046848,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k16.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k16.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/matched_k16.json",
+      "support": "matched",
+      "top1_target": 0.7578125
+    },
+    {
+      "a_target": 0.7442056741565466,
+      "delta_target": -0.029948812909424305,
+      "k": 20,
+      "kl_target": 0.514246073353803,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k20.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k20.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/matched_k20.json",
+      "support": "matched",
+      "top1_target": 0.7578125
+    },
+    {
+      "a_target": 0.7186741484329104,
+      "delta_target": -0.055480338633060455,
+      "k": 8,
+      "kl_target": 0.6515881584190701,
+      "mapper": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k8.pt",
+      "mapper_metadata": "artifacts/paper_vs_subspace_2026-09-09/matched_ridge/k8.pt.json",
+      "result": "results/paper_vs_subspace_2026-09-09/mapper_selection_B/matched_k8.json",
+      "support": "matched",
+      "top1_target": 0.7109375
+    }
+  ],
+  "schema_version": 1,
+  "selection_metric": "max mean verifier-proposal overlap; tie lower target KL; tie lower k",
+  "selection_split": "B"
+}
