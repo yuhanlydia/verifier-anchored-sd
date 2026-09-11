@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "scientific_parameters_changed": false,
+  "profiles": [
+    {
+      "target_gpu_memory_gib": 6,
+      "draft_gpu_memory_gib": 4,
+      "observation": "no completed row after more than 300 seconds",
+      "outcome": "terminated for throughput profiling"
+    },
+    {
+      "target_gpu_memory_gib": 10,
+      "draft_gpu_memory_gib": 7,
+      "completed_rows": 1,
+      "row_elapsed_s": 127.72289451025426,
+      "peak_vram_bytes": 19915037696,
+      "outcome": "terminated after measurement"
+    },
+    {
+      "target_gpu_memory_gib": 12,
+      "draft_gpu_memory_gib": 8,
+      "first_row_elapsed_s": 76.0133511396125,
+      "first_row_peak_vram_bytes": 22654798848,
+      "outcome": "selected and running"
+    }
+  ],
+  "selected_reason": "measured 40 percent lower first-row latency than 10/7 GiB while retaining approximately 2.46 GiB peak GPU headroom",
+  "invariants": {
+    "target": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218",
+    "draft": "Qwen/Qwen3-4B@1cfa9a7208912126459214e8b04321603b3df60c",
+    "dtype": "bfloat16",
+    "prompts": 64,
+    "prompt_tokens": 512,
+    "new_tokens": 128,
+    "gamma": 4,
+    "bootstrap_samples": 10000
+  }
+}

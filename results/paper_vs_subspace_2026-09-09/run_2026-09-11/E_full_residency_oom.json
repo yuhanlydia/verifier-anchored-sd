@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "incomplete",
+  "phase": "E_subspace_block_acceptance_model_and_mapper_load",
+  "observed_at_utc": "2026-09-11T07:24:03.436463+00:00",
+  "command_profile": {
+    "prompts": 64,
+    "prompt_tokens": 512,
+    "new_tokens": 128,
+    "gamma": 4,
+    "bootstrap_samples": 10000,
+    "dtype": "bfloat16",
+    "low_vram": false
+  },
+  "completed_rows": 0,
+  "requested_rows": 320,
+  "failure": {
+    "type": "torch.OutOfMemoryError",
+    "location": "RidgeKVMapper.load(..., map_location='cpu').to(device='cuda', dtype=bfloat16)",
+    "requested_allocation_bytes": 1207959552,
+    "gpu_total_capacity_gib": 23.56,
+    "gpu_free_at_failure_mib": 541,
+    "process_gpu_memory_gib": 23.02
+  },
+  "recovery": {
+    "model_or_dtype_changed": false,
+    "scientific_parameters_changed": false,
+    "action": "use exact-BF16 CPU offload with explicit per-model GPU residency budgets"
+  },
+  "D_result_sha256": "3d35d5fed0146f9e9adb8baa47c85243038a5e94f5b6df13a718366e2047561f"
+}
