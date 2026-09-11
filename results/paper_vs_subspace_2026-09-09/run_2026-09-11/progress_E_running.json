@@ -1,0 +1,30 @@
+{
+    "schema_version": 1,
+    "observed_at_utc": "2026-09-11T07:46:05+00:00",
+    "status": "running",
+    "stage": "E_subspace_block_acceptance",
+    "completed_rows": 8,
+    "requested_rows": 320,
+    "completed_methods": 0,
+    "methods": 5,
+    "prompts_per_method": 64,
+    "mean_row_elapsed_s": 79.2,
+    "last_row_elapsed_s": 68.14,
+    "selection_policy": "exploratory",
+    "winner_method": "grad_mapped_soft_r64_b0.75",
+    "scientific_parameters": {
+        "prompt_tokens": 512,
+        "new_tokens": 128,
+        "gamma": 4,
+        "bootstrap_samples": 10000,
+        "dtype": "bfloat16"
+    },
+    "runtime_residency": {
+        "target_gpu_memory_gib": 12,
+        "draft_gpu_memory_gib": 8,
+        "exact_weights": true,
+        "cpu_offload": true
+    },
+    "scientific_result_status": "incomplete; E metrics are not interpreted until all 320 paired rows finish",
+    "D_result_sha256": "3d35d5fed0146f9e9adb8baa47c85243038a5e94f5b6df13a718366e2047561f"
+}
