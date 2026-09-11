@@ -274,8 +274,15 @@ class GroupedHeadMLPMapper:
             tensor = getattr(self, name)
             if tuple(tensor.shape) != shape:
                 raise ValueError(f"{name} shape {tuple(tensor.shape)} != expected {shape}")
-            if not tensor.is_floating_point() or not torch.isfinite(tensor).all():
+            if not tensor.is_floating_point():
                 raise ValueError(f"{name} must be finite floating point")
+            # A full MLP can contain billions of weights. Bound temporary
+            # isfinite allocations to one receiver head while checking all values.
+            for layer in tensor.unbind(0):
+                for kind in layer.unbind(0):
+                    for head in kind.unbind(0):
+                        if not torch.isfinite(head).all():
+                            raise ValueError(f"{name} must be finite floating point")
 
     @property
     def device(self) -> torch.device:

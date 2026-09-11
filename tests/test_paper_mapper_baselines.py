@@ -106,3 +106,22 @@ def test_grouped_mlp_save_load_round_trip(tmp_path):
     assert loaded.metadata.hidden_dim == 2
     assert torch.equal(loaded.w1, mapper.w1)
     assert torch.equal(loaded.w3, mapper.w3)
+
+
+def test_mlp_validation_bounds_temporary_memory_and_checks_last_head(monkeypatch):
+    import pytest
+    mapper = _identity_like_mlp()
+    original = torch.isfinite
+    checked = []
+
+    def bounded_isfinite(tensor):
+        assert tensor.ndim <= 2, 'validation must not allocate masks for all heads at once'
+        checked.append(tensor.numel())
+        return original(tensor)
+
+    monkeypatch.setattr(torch, 'isfinite', bounded_isfinite)
+    mapper._validate()
+    assert sum(checked) == sum(getattr(mapper, name).numel() for name in ('w1', 'b1', 'w2', 'b2', 'w3', 'b3'))
+    mapper.w1[-1, -1, -1, -1, -1] = float('nan')
+    with pytest.raises(ValueError, match='w1 must be finite'):
+        mapper._validate()
