@@ -1,0 +1,12 @@
+{
+  "status": "incomplete",
+  "exit_code": 137,
+  "phase": "MLP construction after training 72 layer/kind blocks",
+  "checkpoint_written": false,
+  "cgroup_oom_kill": 1,
+  "memory_limit_bytes": 32239517696,
+  "memory_peak_bytes": 31874011136,
+  "cause": "whole-model isfinite validation allocates large temporary tensors",
+  "fix_commit": "f5f01a26230f3b758ce493bf4d6d6748c30bcd0a",
+  "recovery": "same MLP training configuration; head-wise finite validation; reuse completed ridge and B results"
+}
