@@ -1,0 +1,10 @@
+{
+  "timestamp_utc": "2026-09-11T03:53:44.527364+00:00",
+  "user_requested_change": "Performance gates are advisory; complete comparisons and exploratory follow-up without numerical pass thresholds. Report positive and negative findings and reusability.",
+  "selection_policy": "exploratory",
+  "effective_code_commit": "335de0606e6936c21d7544f9d507d39f2783fac1",
+  "applies_to": "forthcoming subspace selection and E evaluation; current full-head k12 fitting continues unchanged",
+  "model_dtype_k_and_data_changed": false,
+  "strict_decision_retained_as_diagnostic": true,
+  "validation": "165 tests passed; compileall and shell syntax passed"
+}
