@@ -86,6 +86,8 @@ def load_hf_pair(
     dtype: str = "bfloat16",
     *,
     low_vram: bool = False,
+    target_gpu_memory_gib: int = 6,
+    draft_gpu_memory_gib: int = 4,
     target_device: str | None = None,
     draft_device: str | None = None,
     target_revision: str = "main",
@@ -104,7 +106,7 @@ def load_hf_pair(
             target_device,
             dtype,
             revision=target_revision,
-            gpu_memory_gib=6,
+            gpu_memory_gib=target_gpu_memory_gib,
             offload_folder=".cache/vakv_offload_target",
         )
         draft = load_hf_model(
@@ -112,7 +114,7 @@ def load_hf_pair(
             draft_device,
             dtype,
             revision=draft_revision,
-            gpu_memory_gib=4,
+            gpu_memory_gib=draft_gpu_memory_gib,
             offload_folder=".cache/vakv_offload_draft",
         )
     else:

@@ -114,6 +114,8 @@ def main() -> None:
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
     ap.add_argument("--low-vram", action="store_true")
+    ap.add_argument("--target-gpu-memory-gib", type=int, default=6)
+    ap.add_argument("--draft-gpu-memory-gib", type=int, default=4)
     args = ap.parse_args()
 
     if min(args.prompts, args.prompt_tokens, args.new_tokens, args.gamma, args.bootstrap_samples) <= 0:
@@ -199,6 +201,8 @@ def main() -> None:
         args.device,
         args.dtype,
         low_vram=args.low_vram,
+        target_gpu_memory_gib=args.target_gpu_memory_gib,
+        draft_gpu_memory_gib=args.draft_gpu_memory_gib,
         target_revision=target_revision,
         draft_revision=draft_revision,
     )
@@ -253,6 +257,8 @@ def main() -> None:
         "gamma": args.gamma,
         "bootstrap_samples": args.bootstrap_samples,
         "low_vram": bool(args.low_vram),
+        "target_gpu_memory_gib": args.target_gpu_memory_gib,
+        "draft_gpu_memory_gib": args.draft_gpu_memory_gib,
         "methods": methods,
     }
 
