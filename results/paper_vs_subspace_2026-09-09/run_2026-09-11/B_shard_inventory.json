@@ -1,0 +1,646 @@
+{
+  "created_utc": "2026-09-11T06:08:38.187845+00:00",
+  "reason": "All eight ridge and selected MLP B evaluations complete; retain frozen B, tokens, manifests and all metrics",
+  "files": [
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00000.pt",
+      "size_bytes": 151541333,
+      "sha256": "ff7b1cf4d7f5f77e6b80b53864f908fe9af89dcc9d8bfc2be083956ff98a0fba"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00001.pt",
+      "size_bytes": 151541333,
+      "sha256": "3d661d7698eb8f07f14decfc4623713aa945cfadd6c2b59e895e463262447786"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00002.pt",
+      "size_bytes": 151541333,
+      "sha256": "3ecdeffc5b527f51804e64e056d90c65c073a428549b7603b905895432b4070f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00003.pt",
+      "size_bytes": 151541333,
+      "sha256": "645aea56a7da0e3c36ed6c5a372ce6e0363994d9a811a30fb21b19aa30ae0031"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00004.pt",
+      "size_bytes": 151541333,
+      "sha256": "2f3e7e42bbaa47b519c94fe4beb590dc15098c0389e93bfda2b6eb0d8984b517"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00005.pt",
+      "size_bytes": 151541333,
+      "sha256": "47e6e0f241c6949c394985497cd78c8d1416b230c994c3cff6229a876ea616cb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00006.pt",
+      "size_bytes": 151541333,
+      "sha256": "24dec2603f5c361d1d4b866e2a62514c4ad5a135979f0936af795d56da1a7c7b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00007.pt",
+      "size_bytes": 151541333,
+      "sha256": "cdc5dd8bde7da93a6ae68879f4e87f33138169175cd3a5398b8b87cacbb913db"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00008.pt",
+      "size_bytes": 151541333,
+      "sha256": "a6afe5bb1d52a48f888d7734ef8beaab77e143b02a50a10737c110d68e51fa04"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00009.pt",
+      "size_bytes": 151541333,
+      "sha256": "ad06dfa3086a7e1f6e63884f9f66c3688aa966c1a57140dd7cd231b081eec7c5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00010.pt",
+      "size_bytes": 151541333,
+      "sha256": "aa7842b26e6a609afd17931ce90dc17632f2d7ff81daaa1dec6769f0e77ecf42"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00011.pt",
+      "size_bytes": 151541333,
+      "sha256": "ff4449143aeaa96326f19a35885003acf3de03d80ee301b324cf69e352560e32"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00012.pt",
+      "size_bytes": 151541333,
+      "sha256": "431b1b8253645b471e93249066a1ed5f9c2902fda2827f80e7936545072ee502"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00013.pt",
+      "size_bytes": 151541333,
+      "sha256": "ab41b67bc321b5457d91e14a9d2da97d3a29f57ddb9957826cd42ddf95d9248b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00014.pt",
+      "size_bytes": 151541333,
+      "sha256": "33002ef18754ba34633287072a510ca92d3952a104777aba2279d7d55c195ba7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00015.pt",
+      "size_bytes": 151541333,
+      "sha256": "da32647c1ff0712f058f09cb297cdd1456bd1ee4be0fb62e3ad08926d1b3523a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00016.pt",
+      "size_bytes": 151541333,
+      "sha256": "ee39a1f2a9b19c7688c61aa2c24d8c35a708800563c1bcf3db7553982da9b9ae"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00017.pt",
+      "size_bytes": 151541333,
+      "sha256": "6180b2aacbf80eedb5a133fd88a30504fc3044261f2d2b99c335e1d527b71c02"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00018.pt",
+      "size_bytes": 151541333,
+      "sha256": "efd47393fff0870a7fd2b575fb268f2f4e5b8b733ed4c9821bc3909f3934e7e2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00019.pt",
+      "size_bytes": 151541333,
+      "sha256": "0b1900bd5ec86c2ed7896943f854a38a3401fb24814584630ce638b677c53116"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00020.pt",
+      "size_bytes": 151541333,
+      "sha256": "ad56c3b331952689f2ed67d70a1248c6776191f03e4cc8236f582da3a83d0539"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00021.pt",
+      "size_bytes": 151541333,
+      "sha256": "a6f702bef9bdf91190752fbf81d49be9e528bda90acabbba240f2e039af44c75"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00022.pt",
+      "size_bytes": 151541333,
+      "sha256": "64f0d19bf97c16ccde4f2cda71cae9b5316d4ac1476377e274e4820921c39916"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00023.pt",
+      "size_bytes": 151541333,
+      "sha256": "6edcf962502f1908b23b1501590b75ec7da8072b2c8c8a4e84f88edfe036f828"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00024.pt",
+      "size_bytes": 151541333,
+      "sha256": "7118940163b5589a05bd01b0bb2323bd6a3feb38a15c5271f7ee05f62a54145d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00025.pt",
+      "size_bytes": 151541333,
+      "sha256": "3d8c88a6a98dfc03437d1c8265a2febc7a56e020a3eaf8732bfb41cd92071212"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00026.pt",
+      "size_bytes": 151541333,
+      "sha256": "502cbda8e0b991d69151b229b787bfc4700a1a20359f74de40bdf2636b2929b0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00027.pt",
+      "size_bytes": 151541333,
+      "sha256": "17aabf9dc42208d83542219b4a59d921b208d40f08718fa3e10c2750ff61f92a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00028.pt",
+      "size_bytes": 151541333,
+      "sha256": "2c6c0111bfacbc710ad6820307f4e1eaa9f6b0c2b57faefb4a4425e40045a60a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00029.pt",
+      "size_bytes": 151541333,
+      "sha256": "d303e0dbedfd7e34ba8419177ff09884d07e42da58a0f08bb2a8e803a989d3c3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00030.pt",
+      "size_bytes": 151541333,
+      "sha256": "bdab15d7dae0f8a1af39b3eb232c580eddf167c8b6b2268d6e8b466ef820353e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00031.pt",
+      "size_bytes": 151541333,
+      "sha256": "5849dce2f1734f79a978d6b2ad055e9f5614d0bff8f4179a3f3653c2e335cfc9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00032.pt",
+      "size_bytes": 151541333,
+      "sha256": "b128f537d8053bf7c1825d7dc81ae4b7e5f20bed369952e4a638ef8f734c0059"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00033.pt",
+      "size_bytes": 151541333,
+      "sha256": "3edfef54bd6b5b6ec8082252038f3aa90234fa2f0bcfb4db3bc371f05fbf720d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00034.pt",
+      "size_bytes": 151541333,
+      "sha256": "62ee8718d570a8dbfc2fd68b5c89cb1e9586d740396d853eb071ca044c1c2d70"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00035.pt",
+      "size_bytes": 151541333,
+      "sha256": "c1bf9b943f7ec46d79423c9597a3e631c3f93dae09d86932176a135524b20da2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00036.pt",
+      "size_bytes": 151541333,
+      "sha256": "8f5c0d4730f29d3d2d5a4095e5c3a8bcb58aa525d98a6da61b7d110caa6179c1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00037.pt",
+      "size_bytes": 151541333,
+      "sha256": "b5794f74a0c298455bb119038d1d56d8dccc0f4d9ac0e82e5c968636c32588e2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00038.pt",
+      "size_bytes": 151541333,
+      "sha256": "925085ef997485f2e0de92ef2ac0eca4867c812cdeb288b411af542ae1ff2fae"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00039.pt",
+      "size_bytes": 151541333,
+      "sha256": "6b3e76862fa110853facd554913ebe927d1929b35e6729d129f6bf679fc21949"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00040.pt",
+      "size_bytes": 151541333,
+      "sha256": "d90eadb0c52b2a331798c0bed83cb3999db2b3547b97f6f4bc9ecb1fb197bd87"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00041.pt",
+      "size_bytes": 151541333,
+      "sha256": "5d7e55c435092046eb34b293e51a0cc1ef01669b4bbea19dcceaabefb7608cba"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00042.pt",
+      "size_bytes": 151541333,
+      "sha256": "d6889f0e1ce9c5eb2b6a46c164bff286a47971f2c5f1ed2bb20673061cb2618d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00043.pt",
+      "size_bytes": 151541333,
+      "sha256": "dd19117d3fafb381fc29f909acf669bc5b973e1684357f20bad90dfe0d19b637"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00044.pt",
+      "size_bytes": 151541333,
+      "sha256": "3efd03abf77dda8e9ed04db4470a119873e0af23deccd2cfe12bf3c5f218c09c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00045.pt",
+      "size_bytes": 151541333,
+      "sha256": "0fe00f25632391109a3753df6b6e766b020a90d0c4435ff3e624edecf4df77c6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00046.pt",
+      "size_bytes": 151541333,
+      "sha256": "fbb94be0d2a499aea8b9cb8bc0b6daaed1a40bec3a9c80e124b968a93ddf3a10"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00047.pt",
+      "size_bytes": 151541333,
+      "sha256": "3190c8d458b2a982db6469b04f1e44abe8ccce63351f568ef5af86cf4ada0626"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00048.pt",
+      "size_bytes": 151541333,
+      "sha256": "75a7f7f8a312779535b635a9f0721d86d94d0a840916a5bf123f4b6726172d30"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00049.pt",
+      "size_bytes": 151541333,
+      "sha256": "e42a0cba717c2dea447e6d7418db26569ddf0573c8dca99fa63f38e0557d06fa"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00050.pt",
+      "size_bytes": 151541333,
+      "sha256": "c323c3c2adefafa662a09c4d763efc28050f35aa87c3457e5e5f0715b128dc8e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00051.pt",
+      "size_bytes": 151541333,
+      "sha256": "4bcbef30ed40f774e61d4464965168bd56efd269dc1c32cefb6734812340c24b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00052.pt",
+      "size_bytes": 151541333,
+      "sha256": "f156edb5a3a0a63d132b4bd7ef0dd6be6570c8052919888896e1de4f668ad17d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00053.pt",
+      "size_bytes": 151541333,
+      "sha256": "4516b95a58c847340f007feb3332241bc69877dfde47d1981c5f0bf1df4d55c6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00054.pt",
+      "size_bytes": 151541333,
+      "sha256": "5f6fec9d496af483097afd32f2bb7682ce279df4befd3430b94e15df001c50d3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00055.pt",
+      "size_bytes": 151541333,
+      "sha256": "9e698ac7cb335ab23eb778f84b1668da835561bfdbc8be6110553001c942f441"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00056.pt",
+      "size_bytes": 151541333,
+      "sha256": "9ba13a8c3bbcc41817862bb984a3938a9e28435dbc8c3a7263d2ea389b7fc000"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00057.pt",
+      "size_bytes": 151541333,
+      "sha256": "9bed87dd6f727b4a131421318c13cf1ab8bfada32905bb7e175dd3abb45c7f7c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00058.pt",
+      "size_bytes": 151541333,
+      "sha256": "cd6b8f1ec8a1999d0a5350a2b95a714cabc382451b4320157b55bd629c69036a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00059.pt",
+      "size_bytes": 151541333,
+      "sha256": "570e523e1a3c9fb027c84c6e4f28937612bdc1406f0730308d019dc1e3a5f1f5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00060.pt",
+      "size_bytes": 151541333,
+      "sha256": "caf7925498b6ee70351a92fca385eda6ceb0ed7b1345e077299c691b551b8734"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00061.pt",
+      "size_bytes": 151541333,
+      "sha256": "de51879b137fc322eeff153c064f9e6841ff503eee3c2df2e1bf540fc6faa81d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00062.pt",
+      "size_bytes": 151541333,
+      "sha256": "cb204cd5a220a3be5314907756eaf92af18ef6e0130366189de3d88d2fc1c06a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00063.pt",
+      "size_bytes": 151541333,
+      "sha256": "a96061cc70ee602c75cd42ad9dc1bfd8be0b81975ab78b561862fbe884028e20"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00064.pt",
+      "size_bytes": 151541333,
+      "sha256": "7f88dc526373daf5c7cbf9afb25fa36cb440ab254b12b4ab66be114da4b0d040"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00065.pt",
+      "size_bytes": 151541333,
+      "sha256": "e1ae4ff484722ce441f13074cbfde4d24274248bbdb28aa645d593e7912bfc06"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00066.pt",
+      "size_bytes": 151541333,
+      "sha256": "14316736b218bb6a2bb66e804e6f57d2abc1587d8af2c0f3c9b9e2c1a72bcd6d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00067.pt",
+      "size_bytes": 151541333,
+      "sha256": "1847ec976c88afb16a3d484a631df843579ad6d360a3b820e78c99dcc2110a10"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00068.pt",
+      "size_bytes": 151541333,
+      "sha256": "4487f9949c221b6e58d5dcff869ee983db1a4190700c1ed7756bf5698c782e99"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00069.pt",
+      "size_bytes": 151541333,
+      "sha256": "df95972f4afd9ad5fbcc8cd65a8db7870cdf267e4d84f7c5e67cf601773fb3c6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00070.pt",
+      "size_bytes": 151541333,
+      "sha256": "a5719b1635628e9a9575a54fec4f653e46df3e01b24756986b1374b81eacaedd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00071.pt",
+      "size_bytes": 151541333,
+      "sha256": "0a08a2729c659594ec04dd92d8257cb852b32c66f9cf2d922898a550e5adb36a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00072.pt",
+      "size_bytes": 151541333,
+      "sha256": "454d1d61314d7498358c87a14c06a81c923bd75bfde86bc8323e239c17815137"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00073.pt",
+      "size_bytes": 151541333,
+      "sha256": "1b5b05ff22b49b9d75ad51f0ec8027c73477beed3131dcbd0cf4571be0f2343c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00074.pt",
+      "size_bytes": 151541333,
+      "sha256": "0935e0fc7a2bbc35de745269bf6551dec115cea0ae38123c43520c0af5c6a1da"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00075.pt",
+      "size_bytes": 151541333,
+      "sha256": "c99f5da3334600931044c1f28876dade9e6acb10f018ec257de02c081de0ee47"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00076.pt",
+      "size_bytes": 151541333,
+      "sha256": "01e734b15f833a1b3259609de713ce8b2487c621bb4a8cfb054bd396248197c5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00077.pt",
+      "size_bytes": 151541333,
+      "sha256": "5713f32ed333c9ff9f7e64edacad060b3afdd37f8370b61da1f8eb672842b172"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00078.pt",
+      "size_bytes": 151541333,
+      "sha256": "3c5e563e736afe58e398351e3da17340d2609bc5abd1900816e20a9f712b4b6d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00079.pt",
+      "size_bytes": 151541333,
+      "sha256": "e17c2c4feb07d50dc9b733babd157562451e7a706dbcd56bc25ca46467ff7a0d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00080.pt",
+      "size_bytes": 151541333,
+      "sha256": "3faa6e15555411dfdadb834b6925aa81a3c3373098564b04f7bd422f554c57e3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00081.pt",
+      "size_bytes": 151541333,
+      "sha256": "2bd9de975d98fb0227c22ba5a7e06c826638e80a2d59ac54634d6806a29cd237"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00082.pt",
+      "size_bytes": 151541333,
+      "sha256": "76ef11e1dc6ec40e465a92e851298bbc8682847b1672942f4239ac2e801abb8a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00083.pt",
+      "size_bytes": 151541333,
+      "sha256": "894c5065985c71be2756a5f115c2c5910cef327a8ce63848e39cac18b8fc6450"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00084.pt",
+      "size_bytes": 151541333,
+      "sha256": "7ab41c36f6ce8b707f839b0abd852525db563b86e7a7ae3d1ced42ae4195a234"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00085.pt",
+      "size_bytes": 151541333,
+      "sha256": "2995c0e6269ee13d6ff0556d6455b98a7845644fea75da4cd4327df53186a2d9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00086.pt",
+      "size_bytes": 151541333,
+      "sha256": "bd097a099a3b3491313e8b8cdbfc29ec19cb3dfdaf3e4b90abc868b908fdb8fb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00087.pt",
+      "size_bytes": 151541333,
+      "sha256": "cea8db86619b07509a9bf5ad19b5261234317cc2b03c7ee1d6e9f4013dff2bec"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00088.pt",
+      "size_bytes": 151541333,
+      "sha256": "b2993128cd417e5408848d3998a14d3341df05df3d5f8b14d65c60818b74997a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00089.pt",
+      "size_bytes": 151541333,
+      "sha256": "d6eefef52d5cee7acb401999ff335f708f1580bd29c74dc9ace3d41b75403bf9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00090.pt",
+      "size_bytes": 151541333,
+      "sha256": "29d91fcd4bd876124bf10fc34f330fe4bf542fa8f1238e07f0e24abfed887d41"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00091.pt",
+      "size_bytes": 151541333,
+      "sha256": "e5ce76b7252c5861aaeb272f53e7fbba859293ae64c32e395da9e9f2e46cdaf6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00092.pt",
+      "size_bytes": 151541333,
+      "sha256": "f31e186c95ae6697dfad68849c3914410ef63f0e5050f3aded55d30d31b4f40e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00093.pt",
+      "size_bytes": 151541333,
+      "sha256": "769cfd646e3ddf213ad738566e9cd61f513383a599ba5a95662e6756cfa6b51d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00094.pt",
+      "size_bytes": 151541333,
+      "sha256": "52a183c32ac824f5025ade5d60acc9d3c70347fb70dd6fc08563814c0655b42a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00095.pt",
+      "size_bytes": 151541333,
+      "sha256": "35f2309e032e698f17f93a105fdcdf76aff7784d568c2d43eaee058cd7a2da3b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00096.pt",
+      "size_bytes": 151541333,
+      "sha256": "0b1c9cd60bb1eeb55ab05ac309b860dfc96963602f64bd4cd7fbcd3efa45c68d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00097.pt",
+      "size_bytes": 151541333,
+      "sha256": "7524bcd46cd41adb702ee947bfcfdea44bb20f8560b3d0e5c1c67b1024ff6860"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00098.pt",
+      "size_bytes": 151541333,
+      "sha256": "0b43221d0444e2272a553af70a39372a1ff3b8b2512b27a0b1852592074cda84"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00099.pt",
+      "size_bytes": 151541333,
+      "sha256": "5299bf184d20f4d3c8273c23a25a4beeb3d3789c8a18d9c6af1b2f4a476149da"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00100.pt",
+      "size_bytes": 151541333,
+      "sha256": "0128d4d2938ce8122fa9badcfda9ac76c30cb37970328429a2c905280efbe953"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00101.pt",
+      "size_bytes": 151541333,
+      "sha256": "b2a93644581727f29e0f5400a730ebd15d266b29c872d9d474a592675156091f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00102.pt",
+      "size_bytes": 151541333,
+      "sha256": "42c5d2388530adf0cb9a1d8ed868bf8bb95e177c17e259b6ef0f815a663f94d5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00103.pt",
+      "size_bytes": 151541333,
+      "sha256": "1c80e67188e72aaffc542e09454a8d8046208d054bb0311ef149d25ccc10dc9c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00104.pt",
+      "size_bytes": 151541333,
+      "sha256": "fcacebb8f55f0793436b53df433a3efd6fe97c31869e4fde75d65756628db412"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00105.pt",
+      "size_bytes": 151541333,
+      "sha256": "b7a8224d529531be03aa1d190abe31072a56233b812a95dca1cfa56c1c2656a7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00106.pt",
+      "size_bytes": 151541333,
+      "sha256": "287517673a59a1aed998f08f0337e89f451a5b32a07944107b6313575366847f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00107.pt",
+      "size_bytes": 151541333,
+      "sha256": "18b5f5e0582fbb4d6fe9bfe7c46b698b08ea7decfc4a6261aee9ecbbb5c3620e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00108.pt",
+      "size_bytes": 151541333,
+      "sha256": "d0e3b13e75cb897a7c39011ee2141f0db584ce34f0b2b494b6c2df2f7d5865bf"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00109.pt",
+      "size_bytes": 151541333,
+      "sha256": "ed40725a4d5bf7b56895ac4ba3de911271ab077284a544fca595e739ac3b7cb5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00110.pt",
+      "size_bytes": 151541333,
+      "sha256": "da28e81676a25e2f34d81d8ed5cac4249d5d72f0ffcfe1d32d155987e461a595"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00111.pt",
+      "size_bytes": 151541333,
+      "sha256": "db835dc250415ed90153faa6102287ceec067df6c6e0dcb6c8dd2cc9506b2935"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00112.pt",
+      "size_bytes": 151541333,
+      "sha256": "0d12390fdc3f7977bd4dab6dca86790b4f204c4711da312d9929b4410eab873d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00113.pt",
+      "size_bytes": 151541333,
+      "sha256": "1d02e384e4bd906ff69f81c75c4b0beeead33e23e646b1322be924430924ecc9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00114.pt",
+      "size_bytes": 151541333,
+      "sha256": "9fe7b349a313732ba6c29838d07aa69f2f64b7066fb62be6e942ad7b6c551549"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00115.pt",
+      "size_bytes": 151541333,
+      "sha256": "605ce5cd757bb686cf05659ec99f158fa5a8a77759e36ec02d2989f4b2b572a6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00116.pt",
+      "size_bytes": 151541333,
+      "sha256": "835d53691875bf65aed711e148e1a2ea13a4c3f0006655a50a016e9010cd24a6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00117.pt",
+      "size_bytes": 151541333,
+      "sha256": "b5a6d1e94810cdfeda4b1ce2206875ab4848860fec154ce6d53d8a33cf35c790"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00118.pt",
+      "size_bytes": 151541333,
+      "sha256": "e209a73224dafd9cb54d43f2485726c7edc05d9e35c4e58bda9efff84f257aeb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00119.pt",
+      "size_bytes": 151541333,
+      "sha256": "be229b2f5143e26f3051831122821d611f846349eb83e9454fabb9868e1f9499"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00120.pt",
+      "size_bytes": 151541333,
+      "sha256": "6d3c430d965e669dbce39deada7b689dee2b5484d3cc6c0cc3755bc0fe3f3aa7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00121.pt",
+      "size_bytes": 151541333,
+      "sha256": "68b9a99f4057bfeb50b43977e6795e9d8cf54e20140d20f2d1a20a66e5425980"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00122.pt",
+      "size_bytes": 151541333,
+      "sha256": "7907193af2afa9ebba8583eaacec61f4cf8dc708adb48007a1392da9c005efe6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00123.pt",
+      "size_bytes": 151541333,
+      "sha256": "6aab12153c4a45fe272d4521981194294937e37a20705284ac631d2898e10de0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00124.pt",
+      "size_bytes": 151541333,
+      "sha256": "ea446b14612253a6321fedd44386662523109cc3e58d044f88c573288fc55d8a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00125.pt",
+      "size_bytes": 151541333,
+      "sha256": "91709759e6742687cfc34e4958fd358a5a90071e96c75d053fea558d69d55000"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00126.pt",
+      "size_bytes": 151541333,
+      "sha256": "57c2e1081f3e8fbc0c0f879656df596b1f5ba907aefdfa0a83fa71cccfe54746"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/mapper_eval_screen/shards/00127.pt",
+      "size_bytes": 151541333,
+      "sha256": "fb9f9ef3d6f63d0a5a6cd9d04ced9f40dc46ed5793b495f6e12f77d50e85a83d"
+    }
+  ]
+}
