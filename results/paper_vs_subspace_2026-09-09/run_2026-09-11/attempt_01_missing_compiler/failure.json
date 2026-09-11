@@ -1,0 +1,9 @@
+{
+  "status": "incomplete",
+  "phase": "A_source_capture_first_forward",
+  "failure_type": "environment_missing_compiler",
+  "message": "Triton failed to find C compiler; Python development headers also absent",
+  "completed_source_shards": 0,
+  "scientific_parameters_changed": false,
+  "remediation": "Install build-essential and python3-dev; verify Triton driver initialization before new attempt"
+}
