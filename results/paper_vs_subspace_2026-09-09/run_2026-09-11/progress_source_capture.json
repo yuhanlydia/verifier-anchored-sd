@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "snapshot_utc": "2026-09-11T03:06:12.701613+00:00",
+  "status": "in_progress",
+  "base_commit": "fcb4064bc86d66601653f6cccfc1a67ec1708865",
+  "profile": "strict_pilot",
+  "hardware": {
+    "gpu": "RTX 3090",
+    "vram_gib": 24,
+    "host_ram_gib_approx": 31
+  },
+  "configuration": {
+    "CALIBRATION_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/A.jsonl",
+    "MAPPER_EVAL_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/B.jsonl",
+    "SUBSPACE_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/C.jsonl",
+    "EVAL_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/D.jsonl",
+    "E2_TEXT": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/E.jsonl",
+    "GPU_MEMORY_GIB": "20",
+    "METHOD_BATCH_SIZE": "8",
+    "SUITE_PROFILE": "pilot",
+    "PYTHON": "/root/verifier-anchored-sd/.venv/bin/python",
+    "OMP_NUM_THREADS": "8",
+    "MKL_NUM_THREADS": "8"
+  },
+  "data": {
+    "dataset": "HuggingFaceFW/fineweb-edu",
+    "revision": "87f09149ef4734204d70ed1d046ddc9ca3f2b8f9",
+    "splits": {
+      "A": {
+        "path": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/A.jsonl",
+        "sha256": "ff3e23840af53883b0031c2b3f7a37e572b810da58a19e77eae7f9c265c1f1c8",
+        "documents": 256,
+        "source_offset_start": 0,
+        "source_offset_end_exclusive": 923,
+        "verified_windows": 128,
+        "window_tokens": 1024
+      },
+      "B": {
+        "path": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/B.jsonl",
+        "sha256": "3345c3ded8a3f33e36001378deda958f08b0da645c9a66da54269afd972e5a2a",
+        "documents": 256,
+        "source_offset_start": 923,
+        "source_offset_end_exclusive": 1845,
+        "verified_windows": 128,
+        "window_tokens": 1024
+      },
+      "C": {
+        "path": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/C.jsonl",
+        "sha256": "b8c9686e7e0d0e5f6c3d385e76a0002576704b315f7c544b326c04ddd8182e03",
+        "documents": 256,
+        "source_offset_start": 1845,
+        "source_offset_end_exclusive": 2889,
+        "verified_windows": 64,
+        "window_tokens": 512
+      },
+      "D": {
+        "path": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/D.jsonl",
+        "sha256": "368c482bf3927f46448fb9ff7590d406edc6396750b49cd498215a90dfc4c79f",
+        "documents": 256,
+        "source_offset_start": 2889,
+        "source_offset_end_exclusive": 3894,
+        "verified_windows": 128,
+        "window_tokens": 1024
+      },
+      "E": {
+        "path": "/root/verifier-anchored-sd/data/paper_vs_subspace_2026-09-11/E.jsonl",
+        "sha256": "54cf8c5dcd955c211436e4a332d1a5aeba6bf514f3702284a20347770f3cdb50",
+        "documents": 256,
+        "source_offset_start": 3894,
+        "source_offset_end_exclusive": 4842,
+        "verified_windows": 64,
+        "window_tokens": 512
+      }
+    }
+  },
+  "completed": {
+    "source_calibration": {
+      "complete": true,
+      "count": 128,
+      "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "token_rows_digest": "6e782b00903344fbcadf668c8164f41cddef4617af25e914a1ee4c4eab7f0059"
+    },
+    "source_manifest_sha256": "be512b6dd6ac2805d3070be9d6841847d1b507749d455f6c8e146f1cda6ff648",
+    "cpu_tests_passed": 161
+  },
+  "attempt_01_failure": {
+    "status": "incomplete",
+    "phase": "A_source_capture_first_forward",
+    "failure_type": "environment_missing_compiler",
+    "message": "Triton failed to find C compiler; Python development headers also absent",
+    "completed_source_shards": 0,
+    "scientific_parameters_changed": false,
+    "remediation": "Install build-essential and python3-dev; verify Triton driver initialization before new attempt"
+  },
+  "remediation_verified": "Installed build-essential and python3-dev; Triton CUDA target sm86 initialized; source capture 128/128 completed",
+  "scientific_results_complete": false,
+  "large_kv_shards_committed": false,
+  "versions": {
+    "torch": "2.14.0+cu130",
+    "transformers": "5.17.0",
+    "cuda": "13.0"
+  }
+}
+
