@@ -1,0 +1,25 @@
+{
+  "status": "completed",
+  "started_utc": "2026-09-11T07:35:09.261264+00:00",
+  "reason": "resume after measuring 10/7 GiB throughput; exact BF16 with 12/8 GiB GPU residency",
+  "command": [
+    "bash",
+    "data/paper_vs_subspace_2026-09-11/resume_after_D.sh"
+  ],
+  "scientific_parameters_changed": false,
+  "residency_changed": true,
+  "supervisor_pid": 81201,
+  "runner_pid": 81204,
+  "heartbeat_utc": "2026-09-11T12:38:54.204465+00:00",
+  "disk_free_gib": 17.72,
+  "exit_code": 0,
+  "scientific_results_complete": true,
+  "finished_utc": "2026-09-11T15:15:30.624435+00:00",
+  "completion_evidence": {
+    "acceptance_result": "results/paper_vs_subspace_2026-09-09/subspace/qwen3_8b_to_4b_subspace_block_acceptance.json",
+    "acceptance_status": "complete",
+    "acceptance_rows": 320,
+    "acceptance_methods": 5,
+    "final_summary": "results/paper_vs_subspace_2026-09-09/paper_vs_subspace_final.json"
+  }
+}
