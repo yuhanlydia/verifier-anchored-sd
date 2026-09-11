@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "status": "running",
+  "updated_utc": "2026-09-11T08:57:49.370190+00:00",
+  "completed_rows": 62,
+  "requested_rows": 320,
+  "methods": {
+    "native_sd": 62
+  },
+  "protocol": {
+    "prompts": 64,
+    "prompt_tokens": 512,
+    "new_tokens": 128,
+    "gamma": 4,
+    "dtype": "bfloat16",
+    "target_gpu_memory_gib": 12,
+    "draft_gpu_memory_gib": 8
+  },
+  "note": "Exploratory full E block-acceptance matrix continues; no scientific parameter changes. This is a progress snapshot, not the final result."
+}
