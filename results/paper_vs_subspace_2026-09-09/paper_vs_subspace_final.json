@@ -1,0 +1,122 @@
+{
+  "comparisons": {
+    "mlp_minus_full_head_a_target": {
+      "bootstrap_samples": 10000.0,
+      "ci_high": -0.5647878858249344,
+      "ci_low": -0.6674238080840025,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": -0.6141872382722795,
+      "pairs": 128.0
+    },
+    "subspace_minus_full_head_a_target": {
+      "bootstrap_samples": 10000.0,
+      "ci_high": -0.017503349759537188,
+      "ci_low": -0.06007585251253159,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": -0.036369253881275654,
+      "pairs": 128.0
+    },
+    "subspace_minus_mlp_a_target": {
+      "bootstrap_samples": 10000.0,
+      "ci_high": 0.6299011631224017,
+      "ci_low": 0.5285544014922381,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": 0.5778179843910038,
+      "pairs": 128.0
+    }
+  },
+  "paper_full_head": {
+    "mapped_over_native_target_overlap": 0.9705300645145423,
+    "mean_a_target_mapped": 0.8079399582929909,
+    "mean_a_target_native": 0.8324728803709149,
+    "mean_delta_target_alignment": -0.024532922077924013,
+    "mean_kl_target_mapped": 0.26809986365285,
+    "mean_kl_target_native": 0.21659147993514338,
+    "mean_mapped_next_token_nll": 2.185362629992156,
+    "mean_native_next_token_nll": 2.0698648057472067,
+    "mean_target_next_token_nll": 1.8455405163131773,
+    "median_delta_target_alignment": -0.0008765459060668945,
+    "p05_delta_target_alignment": -0.2778432577848434,
+    "top1_target_mapped": 0.796875,
+    "top1_target_native": 0.8203125
+  },
+  "paper_mlp": {
+    "mapped_over_native_target_overlap": 0.2327435819103,
+    "mean_a_target_mapped": 0.19375272002071142,
+    "mean_a_target_native": 0.8324728803709149,
+    "mean_delta_target_alignment": -0.6387201603502035,
+    "mean_kl_target_mapped": 7.669158819910081,
+    "mean_kl_target_native": 0.21659147993514338,
+    "mean_mapped_next_token_nll": 9.603556184877334,
+    "mean_native_next_token_nll": 2.0698648057472067,
+    "mean_target_next_token_nll": 1.8455405163131773,
+    "median_delta_target_alignment": -0.6766510009765625,
+    "p05_delta_target_alignment": -0.9992707133293152,
+    "top1_target_mapped": 0.1875,
+    "top1_target_native": 0.8203125
+  },
+  "schema_version": 1,
+  "split": "D",
+  "subspace_decision": {
+    "policy": "exploratory",
+    "rule": "rank all deployable mapped-only methods by overlap, KL, rank and name; no performance cutoff",
+    "status": "explore_e2",
+    "strict_gate_passed": false
+  },
+  "subspace_winner": {
+    "causal_control": false,
+    "deployment_valid": true,
+    "kl_vs_native": {
+      "baseline": "native",
+      "bootstrap_samples": 10000.0,
+      "ci_high": 0.3645463079423399,
+      "ci_low": 0.08276078191539393,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": 0.20164918184839653,
+      "method": "grad_mapped_soft_r64_b0.75",
+      "metric": "kl_target",
+      "pairs": 128.0
+    },
+    "mean_a_target": 0.7715707044117153,
+    "mean_kl_target": 0.4177551802657433,
+    "mechanistic_upper_bound": false,
+    "method": "grad_mapped_soft_r64_b0.75",
+    "rank": 64,
+    "selection_policy": "exploratory",
+    "spec": {
+      "alpha": null,
+      "beta": 0.75,
+      "family": "grad",
+      "mode": "mapped_soft",
+      "rank": 64
+    },
+    "vs_full_mapped": {
+      "baseline": "full_mapped",
+      "bootstrap_samples": 10000.0,
+      "ci_high": -0.017162191554981433,
+      "ci_low": -0.06001091481115416,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": -0.03598100785166025,
+      "method": "grad_mapped_soft_r64_b0.75",
+      "metric": "a_target",
+      "pairs": 128.0
+    },
+    "vs_native": {
+      "baseline": "native",
+      "bootstrap_samples": 10000.0,
+      "ci_high": -0.03157710280588561,
+      "ci_low": -0.09440843672768928,
+      "confidence": 0.95,
+      "independent_clusters": 64.0,
+      "mean_difference": -0.06136541021987796,
+      "method": "grad_mapped_soft_r64_b0.75",
+      "metric": "a_target",
+      "pairs": 128.0
+    }
+  }
+}
