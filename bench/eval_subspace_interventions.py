@@ -220,6 +220,7 @@ def main() -> None:
     ap.add_argument("--ranks", default="4,8,16,32,64")
     ap.add_argument("--method-batch-size", type=int, default=8)
     ap.add_argument("--bootstrap-samples", type=int, default=10000)
+    ap.add_argument("--selection-policy", choices=["strict", "exploratory"], default="strict")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--mapper-device", default="cuda")
     ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
@@ -499,7 +500,8 @@ def main() -> None:
             "kl_vs_native": kl_vs_native,
             **({"spec": asdict(method["spec"])} if "spec" in method else {}),
         }
-    winner = select_deployment_winner(candidates)
+    strict_winner = select_deployment_winner(candidates)
+    winner = select_deployment_winner(candidates, policy=args.selection_policy)
 
     result = {
         "schema_version": 1,
@@ -518,9 +520,19 @@ def main() -> None:
         "paired_bootstrap": paired,
         "candidates": candidates,
         "winner": winner,
+        "strict_winner": strict_winner,
         "decision": {
-            "status": "go_e2" if winner is not None else "no_deployment_winner",
-            "rule": "primary grad/benefit mapped-only winner must beat native and full_mapped target overlap with paired 95% CI low > 0",
+            "status": (
+                ("explore_e2" if args.selection_policy == "exploratory" else "go_e2")
+                if winner is not None else "no_deployment_winner"
+            ),
+            "policy": args.selection_policy,
+            "strict_gate_passed": strict_winner is not None,
+            "rule": (
+                "rank all deployable mapped-only methods by overlap, KL, rank and name; no performance cutoff"
+                if args.selection_policy == "exploratory" else
+                "primary grad/benefit mapped-only winner must beat native and full_mapped target overlap with paired 95% CI low > 0"
+            ),
         },
         "elapsed_s": time.perf_counter() - start,
         "rows": rows,

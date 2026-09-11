@@ -13,6 +13,7 @@ MAPPER="${MAPPER:-artifacts/pair_screen_2026-09-07/qwen3_8b_to_4b/mapper.pt}"
 MAPPER_METADATA="${MAPPER_METADATA:-${MAPPER}.json}"
 GPU_MEMORY_GIB="${GPU_MEMORY_GIB:-28}"
 METHOD_BATCH_SIZE="${METHOD_BATCH_SIZE:-8}"
+SELECTION_POLICY="${SELECTION_POLICY:-exploratory}"
 SUBSPACE_PROMPTS="${SUBSPACE_PROMPTS:-64}"
 SUBSPACE_PREFIX_TOKENS="${SUBSPACE_PREFIX_TOKENS:-512}"
 EVAL_PROMPTS="${EVAL_PROMPTS:-128}"
@@ -105,6 +106,7 @@ capture_screen "$SMOKE_EVAL_DIR" "$EVAL_TEXT" 4 256
   --subspace-artifact "$SMOKE_BASIS" \
   --output "$SMOKE_RESULT" \
   --prompts 4 --ranks 4,8 --method-batch-size "$METHOD_BATCH_SIZE" \
+  --selection-policy "$SELECTION_POLICY" \
   --bootstrap-samples 200 --device cuda --mapper-device cuda --dtype bfloat16 \
   --gpu-memory-gib "$GPU_MEMORY_GIB"
 
@@ -142,6 +144,7 @@ capture_screen "$EVAL_DIR" "$EVAL_TEXT" "$EVAL_PROMPTS" "$EVAL_PREFIX_TOKENS"
   --output "$RESULT" \
   --prompts "$EVAL_PROMPTS" --ranks "$RANKS" \
   --method-batch-size "$METHOD_BATCH_SIZE" \
+  --selection-policy "$SELECTION_POLICY" \
   --bootstrap-samples "$BOOTSTRAP_SAMPLES" \
   --device cuda --mapper-device cuda --dtype bfloat16 \
   --gpu-memory-gib "$GPU_MEMORY_GIB"
@@ -196,8 +199,12 @@ PY
 )"
 
 case "$DECISION" in
-  go_e2)
-    echo "GO_E2: a deployment-valid subspace winner beat BOTH native and full_mapped."
+  go_e2|explore_e2)
+    if [[ "$DECISION" == "explore_e2" ]]; then
+      echo "EXPLORATORY E2: evaluate the frozen deployment candidate without a performance cutoff."
+    else
+      echo "GO_E2: a deployment-valid subspace winner beat BOTH native and full_mapped."
+    fi
     echo "Winner is frozen in: $RESULT"
     if [[ -n "${E2_TEXT:-}" ]]; then
       E2_OUTPUT="$RESULT_ROOT/qwen3_8b_to_4b_subspace_block_acceptance.json"

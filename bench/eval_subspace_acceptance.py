@@ -230,6 +230,8 @@ def main() -> None:
         "draft_revision": draft_revision,
         "dtype": args.dtype,
         "winner_result_sha256": sha256_file(winner_path),
+        "selection_policy": winner_result.get("decision", {}).get("policy", "strict"),
+        "selection_decision": winner_result.get("decision", {}).get("status"),
         "selection_screen_manifest_sha256": sha256_file(selection_root / "manifest.json"),
         "mapper_checkpoint_sha256": mapper_sha,
         "mapper_metadata_sha256": sha256_file(mapper_metadata_path),

@@ -1,5 +1,15 @@
 # Next Stage — Paper-Faithful Mapper vs Student-Readable Subspace
 
+> 2026-09-11 用户更新：性能 gate 改为诊断，不作为继续实验的门槛。
+> `run_student_readable_subspace.sh` 默认 `SELECTION_POLICY=exploratory`：
+> 保留所有指标、置信区间与 `strict_winner`，按 D 上 overlap、KL、rank、名称
+> 的确定性顺序冻结最佳 mapped-only 可部署候选（包括 PCA/random 等对照），
+> 无论是否达到 CI/提升阈值，均继续用独立 E 做探索性验证。
+> `decision.status=explore_e2` 不表示严格 gate 通过；正负结果都完整报告。
+> delta/native-history upper bounds 不可作为部署候选，数据隔离、SHA、模型和
+> 数值有效性检查继续执行。显式设置 `SELECTION_POLICY=strict` 可恢复旧性能 gate。
+> 下文的性能 STOP/GO 规则在探索模式中仅用作解释标准。
+
 ## 1. 为什么必须补这组实验
 
 当前 8B -> 4B 结果是混合的：mapped KV 让 4B 的 verifier top-1 agreement 从

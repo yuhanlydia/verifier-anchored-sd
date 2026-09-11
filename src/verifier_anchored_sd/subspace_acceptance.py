@@ -105,8 +105,15 @@ def validate_subspace_winner(
     reproducibly bound to the supplied mapper/basis artifacts, and does not require
     native draft history.
     """
-    if result.get("decision", {}).get("status") != "go_e2":
-        raise RuntimeError("subspace intervention result must have decision.status='go_e2'")
+    decision = result.get("decision", {})
+    if decision.get("status") == "explore_e2":
+        if (
+            decision.get("policy") != "exploratory"
+            or (result.get("winner") or {}).get("selection_policy") != "exploratory"
+        ):
+            raise RuntimeError("exploratory E2 requires explicit decision and winner policy")
+    elif decision.get("status") != "go_e2":
+        raise RuntimeError("subspace intervention result must have decision.status='go_e2' or 'explore_e2'")
     winner = result.get("winner")
     if not isinstance(winner, dict) or not winner.get("deployment_valid", False):
         raise RuntimeError("subspace intervention result lacks a deployment-valid winner")

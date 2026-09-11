@@ -176,6 +176,34 @@ def test_candidate_failing_native_gate_is_not_eligible():
     assert select_deployment_winner(candidates) is None
 
 
+def test_exploratory_selection_runs_without_ci_gate_and_can_select_control():
+    candidates = {
+        name: {
+            "method": name, "deployment_valid": True, "rank": 8,
+            "causal_control": name == "pca", "mean_a_target": score,
+            "mean_kl_target": 0.3, "vs_native": {"ci_low": -0.1},
+            "vs_full_mapped": {"ci_low": -0.1},
+            "spec": {"family": name, "mode": "mapped_soft", "rank": 8, "beta": 0.0},
+        }
+        for name, score in [("grad", 0.7), ("pca", 0.8)]
+    }
+    assert select_deployment_winner(candidates) is None
+    winner = select_deployment_winner(candidates, policy="exploratory")
+    assert winner["method"] == "pca"
+    assert winner["selection_policy"] == "exploratory"
+
+
+def test_exploratory_selection_never_uses_native_history_upper_bound():
+    candidates = {
+        "delta": {
+            "method": "delta", "deployment_valid": True, "rank": 8,
+            "mean_a_target": 0.99, "mean_kl_target": 0.01,
+            "spec": {"family": "grad", "mode": "delta_projected", "rank": 8},
+        }
+    }
+    assert select_deployment_winner(candidates, policy="exploratory") is None
+
+
 def test_winner_tie_breaks_by_lower_kl_then_lower_rank():
     candidates = {
         "a": {

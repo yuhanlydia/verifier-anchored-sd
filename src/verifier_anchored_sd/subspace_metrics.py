@@ -108,7 +108,9 @@ def _is_primary_method_candidate(candidate: dict) -> bool:
     return True
 
 
-def select_deployment_winner(candidates: dict[str, dict]) -> dict | None:
+def select_deployment_winner(
+    candidates: dict[str, dict], *, policy: str = "strict"
+) -> dict | None:
     """Select one primary mapped-only candidate after the dual-baseline gate.
 
     A candidate is eligible only if it is deployment-valid, is not a causal/control
@@ -116,24 +118,38 @@ def select_deployment_winner(candidates: dict[str, dict]) -> dict | None:
     both pure native 4B and the unfiltered full-mapped cache. Among eligible
     candidates: maximize mean target overlap, then minimize target KL, then minimize
     rank, then method name for a deterministic final tie break.
+
+    Exploratory policy ranks all mapped-only deployment candidates, including
+    controls, without a performance threshold. It does not imply a strict pass.
     """
+    if policy not in {"strict", "exploratory"}:
+        raise ValueError(f"unknown selection policy: {policy}")
     eligible = []
     for key, candidate in candidates.items():
         if not candidate.get("deployment_valid", False):
             continue
-        if not _is_primary_method_candidate(candidate):
-            continue
-        vs_native = candidate.get("vs_native", {})
-        vs_full = candidate.get("vs_full_mapped", {})
-        if float(vs_native.get("ci_low", float("-inf"))) <= 0:
-            continue
-        if float(vs_full.get("ci_low", float("-inf"))) <= 0:
+        if policy == "strict":
+            if not _is_primary_method_candidate(candidate):
+                continue
+            vs_native = candidate.get("vs_native", {})
+            vs_full = candidate.get("vs_full_mapped", {})
+            if float(vs_native.get("ci_low", float("-inf"))) <= 0:
+                continue
+            if float(vs_full.get("ci_low", float("-inf"))) <= 0:
+                continue
+        elif (
+            candidate.get("mechanistic_upper_bound", False)
+            or candidate.get("spec", {}).get("mode") not in {"mapped_soft", "orthogonal"}
+        ):
             continue
         if "mean_a_target" not in candidate or "mean_kl_target" not in candidate:
             raise ValueError(f"eligible candidate {key!r} lacks primary summary metrics")
         if "rank" not in candidate:
             raise ValueError(f"eligible candidate {key!r} lacks rank")
-        eligible.append(dict(candidate))
+        selected = dict(candidate)
+        if policy == "exploratory":
+            selected["selection_policy"] = policy
+        eligible.append(selected)
     if not eligible:
         return None
     eligible.sort(

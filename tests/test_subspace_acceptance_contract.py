@@ -54,6 +54,26 @@ def test_winner_contract_rejects_non_go_result():
         validate_subspace_winner(result, mapper_sha256="mapper-sha", subspace_sha256="basis-sha")
 
 
+def test_exploratory_candidate_can_reach_e2_with_explicit_policy_and_provenance():
+    result = _result()
+    result["decision"] = {"status": "explore_e2", "policy": "exploratory"}
+    result["winner"]["selection_policy"] = "exploratory"
+    contract = validate_subspace_winner(
+        result, mapper_sha256="mapper-sha", subspace_sha256="basis-sha"
+    )
+    assert contract["spec"].rank == 16
+    result["protocol"]["mapper_checkpoint_sha256"] = "wrong"
+    with pytest.raises(RuntimeError, match="mapper checkpoint"):
+        validate_subspace_winner(result, mapper_sha256="mapper-sha", subspace_sha256="basis-sha")
+
+
+def test_exploratory_status_without_policy_cannot_bypass_gate():
+    result = _result()
+    result["decision"] = {"status": "explore_e2"}
+    with pytest.raises(RuntimeError, match="policy"):
+        validate_subspace_winner(result, mapper_sha256="mapper-sha", subspace_sha256="basis-sha")
+
+
 def test_winner_contract_rejects_delta_upper_bound():
     result = _result()
     result["winner"]["spec"] = {

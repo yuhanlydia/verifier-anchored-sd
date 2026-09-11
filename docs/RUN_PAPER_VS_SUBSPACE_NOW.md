@@ -1,5 +1,10 @@
 # 直接跑：Paper Mapper vs Student-Readable KV Subspace
 
+> 2026-09-11：性能关卡已改为参考。subspace runner 默认
+> `SELECTION_POLICY=exploratory`，会保留严格判定和全部指标，并把 D 上冻结的
+> 最佳可部署候选送入独立 E 验证，不要求通过 CI 或提升阈值。
+> 探索性结果不会标成严格通过；详见 `NEXT_STAGE_PAPER_VS_SUBSPACE.md` 顶部更新。
+
 > 测试 agent 请按这个文件执行。不要自行改模型、k、dtype、MLP hidden size、数据 split 或 gate。
 
 ## 1. 拉代码
