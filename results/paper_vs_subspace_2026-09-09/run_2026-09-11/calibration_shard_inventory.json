@@ -1,0 +1,1286 @@
+{
+  "created_utc": "2026-09-11T06:04:27.333759+00:00",
+  "reason": "All ridge and MLP fits completed; calibration KV shards reconstructible from frozen A and capture manifests",
+  "files": [
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00000.pt",
+      "size_bytes": 37901781,
+      "sha256": "4b52bf85b0aad127dbea32b83050771a6468038355d5099cfd139144953741e4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00001.pt",
+      "size_bytes": 37901781,
+      "sha256": "920331531c23f6772bf768c51053f14c31012e0ac5057f64df94a7485d5aa3ec"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00002.pt",
+      "size_bytes": 37901781,
+      "sha256": "3d9505817a03fe254522f7385ca0abf258d6c4c7a76f28233a78ca11c9214401"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00003.pt",
+      "size_bytes": 37901781,
+      "sha256": "d4829e337e0cc5ed927177201ca34cb31feda727eb8429247b6dcfa4f1377645"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00004.pt",
+      "size_bytes": 37901781,
+      "sha256": "1665295074b6e5162b7fb76f01e8726515353de74960a8f09eefa3b33edde314"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00005.pt",
+      "size_bytes": 37901781,
+      "sha256": "c2c510618b2eab8e15d09526bea0509654075b014ea3de31dce5d0a50cee17bb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00006.pt",
+      "size_bytes": 37901781,
+      "sha256": "a76176c85678b0edf71b9c8dde8973ae1fbd755b2c6df1cb2518b513fa51658e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00007.pt",
+      "size_bytes": 37901781,
+      "sha256": "480e21cce83c8104073a80773354046433f2043a2e8bdeb4c6bbdb2e6e0ab3db"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00008.pt",
+      "size_bytes": 37901781,
+      "sha256": "7c722875170f491ab119a5a9527b12e3ba7adb8d55877341a1a399c15b3f7185"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00009.pt",
+      "size_bytes": 37901781,
+      "sha256": "5a12c75a017f0b9e3e2ebe6a4bad34defabec48efec521e43e325e34ff7d7be0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00010.pt",
+      "size_bytes": 37901781,
+      "sha256": "44f89e4990f0c4bbf57be6768e3d35f93dd859ea19e0a1e3ccf2038714dd4797"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00011.pt",
+      "size_bytes": 37901781,
+      "sha256": "bc871e28c8a17d5c2c291cbaf9b449be6937ce2738e27054b7dcd4ae5d0b1c28"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00012.pt",
+      "size_bytes": 37901781,
+      "sha256": "e50ddb186be189d5305c1999d473412b105f853734f5df90379fccd83c1adcc6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00013.pt",
+      "size_bytes": 37901781,
+      "sha256": "9810e26887f4ecc4cc1f0a6ba01eade9764d5aa608c04d8730102a20c51c53d4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00014.pt",
+      "size_bytes": 37901781,
+      "sha256": "a1d92ae68e92902270f7634098ddd95846ddb9a890e11be1d472b855e5269508"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00015.pt",
+      "size_bytes": 37901781,
+      "sha256": "28d7eca90001e94f09bb6f944452b69a798d527d486fd040a5f24f42ead0e3a1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00016.pt",
+      "size_bytes": 37901781,
+      "sha256": "878b9f141e15c140fd38e50d8f375f34833bf16a7b833dd9e136035288f57ac3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00017.pt",
+      "size_bytes": 37901781,
+      "sha256": "7e8bf426b5853fce32c85b828d3657336199be21ac1bf89a843246d2eb6b10df"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00018.pt",
+      "size_bytes": 37901781,
+      "sha256": "1896c7346d1e1a6cc60f45d87bd70d10f1744b16d6c14a740160982ba7fff7e2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00019.pt",
+      "size_bytes": 37901781,
+      "sha256": "243545370afedf78f8506ca779fdde5c130f874189292090f96ccba61077557c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00020.pt",
+      "size_bytes": 37901781,
+      "sha256": "132d31b646d3e8ee860d5c80f90cb45ce94f99004d853b4a06c10bb2e8b89194"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00021.pt",
+      "size_bytes": 37901781,
+      "sha256": "027a4dfa8bd82232b49347c5cb3497f7966ba7d7f39cebe5cbc709a20a77e017"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00022.pt",
+      "size_bytes": 37901781,
+      "sha256": "1cc67f950ff46e3cbda6059084466f916cfb524b0d8c047095f44c61fafc74a9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00023.pt",
+      "size_bytes": 37901781,
+      "sha256": "ea3af742e2a92f8c853486cd9e22673ac1cfa5a9d5c6640c60434ee669d656af"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00024.pt",
+      "size_bytes": 37901781,
+      "sha256": "b692a186c9287c8ebc50762b9719e8a7f417db6808c773717fe4300a6466ee19"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00025.pt",
+      "size_bytes": 37901781,
+      "sha256": "220d976b9eb1b954931ff0b47fd202db434af2071b9624c7c5697d3b52436a8f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00026.pt",
+      "size_bytes": 37901781,
+      "sha256": "23533ccf9a60912e084e0be4d26bf4a023e82f09b01603ea9879cb657fef1461"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00027.pt",
+      "size_bytes": 37901781,
+      "sha256": "fc915bb19b0235e9695f6399d7ad917914bed28d950968bf2693335d6ba53361"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00028.pt",
+      "size_bytes": 37901781,
+      "sha256": "b4acb1404ae254672e7ab603f223aaed3036ab78a178f9f1a3e8976bbe0e45a5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00029.pt",
+      "size_bytes": 37901781,
+      "sha256": "26b2cb31194f74a5b6510900b22595d53f7b87eccbe5254c250c91fb4e12fceb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00030.pt",
+      "size_bytes": 37901781,
+      "sha256": "33dd1cd18526a568b642c78d94bc9fc774eaa799b2999054c34bcbd875f6dc64"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00031.pt",
+      "size_bytes": 37901781,
+      "sha256": "44a729377859b4416cfb87d8afa8b0b253825d45fce624a4e2560624325e1784"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00032.pt",
+      "size_bytes": 37901781,
+      "sha256": "c5ba0ac3958529e609e70c1cc3357d1d74129c29ceec09737632e01bc31bd422"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00033.pt",
+      "size_bytes": 37901781,
+      "sha256": "7e57348506a1585c4c8dc37852f05c4bb419d9a4830b6fb3314723d458f572fd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00034.pt",
+      "size_bytes": 37901781,
+      "sha256": "88c59fa7091d70b40b6e6c22170480cd9d35b118b2bf114878063d0e2305c945"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00035.pt",
+      "size_bytes": 37901781,
+      "sha256": "ff89410cd8c3a4db649d1dd103daa60d643ce5e8c102f7370408dee22ae6b61f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00036.pt",
+      "size_bytes": 37901781,
+      "sha256": "bb2ae6d36f6772154e52b48fdff6729f1b2393dab70173155190dd61079cfadb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00037.pt",
+      "size_bytes": 37901781,
+      "sha256": "cdc3931a8e691aa8e764d84cfddbf9b18a09a69464ff82167b4c528a2189e61c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00038.pt",
+      "size_bytes": 37901781,
+      "sha256": "acbbc92c4b7185b8c229d2c8f563f1052f7c5151eb967fe4993b17912fa0f8ec"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00039.pt",
+      "size_bytes": 37901781,
+      "sha256": "d2c9b26144001154befaef5685186223e37678c018b5d435bb646eb0f70c9252"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00040.pt",
+      "size_bytes": 37901781,
+      "sha256": "77877c6e417fd0e392d9f76c9647027d7fed713679514fe874440d3b42c26a12"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00041.pt",
+      "size_bytes": 37901781,
+      "sha256": "f284c826a11f31bf9c28f48967ee22081da3fd8e468651cdc3739be96507bf42"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00042.pt",
+      "size_bytes": 37901781,
+      "sha256": "ee035a664f2f07ed89e567bf680d314cebac038a631f174b83c8c9c49e1e41c9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00043.pt",
+      "size_bytes": 37901781,
+      "sha256": "0319943bc8c019e60ce228fa9e860be855b9d26a62aa486569959ffc4797e84f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00044.pt",
+      "size_bytes": 37901781,
+      "sha256": "0ed10ce6aa6cc6dbcc8a0ccde12cad4b67b7e95ae294e6b13b44aa01828593fa"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00045.pt",
+      "size_bytes": 37901781,
+      "sha256": "ccbcc3a91d69493006143ac774d5d247abf28aa03ba576df2d98b734723d326c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00046.pt",
+      "size_bytes": 37901781,
+      "sha256": "866409a8d5e401d18be75985facbb7a41a512c82de74e8aa9fdf0cdf9d18a6f4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00047.pt",
+      "size_bytes": 37901781,
+      "sha256": "83af17f8da352a6009ea89cdd75c960eac8eb5e8a3849ae3d404a2f1975d6e0f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00048.pt",
+      "size_bytes": 37901781,
+      "sha256": "80332d9be3695cbd10fa853b24e166975f6ae1b90d529c799c177a1edef7c7a5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00049.pt",
+      "size_bytes": 37901781,
+      "sha256": "b18c5b93011ea3340378073176a0d2cf29808627732adf064a49f45fa2e6178f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00050.pt",
+      "size_bytes": 37901781,
+      "sha256": "80b4dac29f166750501cff0165f8cec59ef4ab4a8895565f350a5225e7a49612"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00051.pt",
+      "size_bytes": 37901781,
+      "sha256": "a23a46b14da8eab74badf2470fae353ea43c77f6e38c6da1ce40009bcd228741"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00052.pt",
+      "size_bytes": 37901781,
+      "sha256": "1ba7d2fc8d0bad753726831c3a3e703aecee1b082351a98604e8d998a508fb2a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00053.pt",
+      "size_bytes": 37901781,
+      "sha256": "f984227789fc25cf575b4b7eeda945f72c87c5b9f0bc08f15d27536387782c48"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00054.pt",
+      "size_bytes": 37901781,
+      "sha256": "68f8762c79b3d45db1e94b5a477a9e70d743b1a648a4cfc09c70763f24f15a5a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00055.pt",
+      "size_bytes": 37901781,
+      "sha256": "12490d08775d142c0bd6b56a1944ead7b1628b29c9e5025bfdbe62f4a2d07ff1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00056.pt",
+      "size_bytes": 37901781,
+      "sha256": "56f4da79c3fb57de6f4303ff0e908494cfdcc864f59ebcca8d031b17dd18ce67"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00057.pt",
+      "size_bytes": 37901781,
+      "sha256": "a35b35b682384673e14fcc82aeb81ce222720a1374650a558a60cec37d62390f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00058.pt",
+      "size_bytes": 37901781,
+      "sha256": "7030d68c09dd836e8ae3a087c145262f8720f4f648a3b5ab7ba5d434897b7428"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00059.pt",
+      "size_bytes": 37901781,
+      "sha256": "c6b18aa94970c04b058b171eb93062fa5e7d16b90022a28e07673a70d45a7800"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00060.pt",
+      "size_bytes": 37901781,
+      "sha256": "20e9e28388be8a78d095c2cf81ffe47d2eb69303db83aec83829ea0cd35a94e3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00061.pt",
+      "size_bytes": 37901781,
+      "sha256": "c7f6c103a1bf8fb326309d745d5eacb2caaf5efb5c9168c02429c9db094e7398"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00062.pt",
+      "size_bytes": 37901781,
+      "sha256": "135053aefb824519b46d4f9a2fc7cb96dcaf82b1afbb7df55cdae1d1a1740f8b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00063.pt",
+      "size_bytes": 37901781,
+      "sha256": "4f9ddc4b6ac07cd2b115df6dc8dc570456ba6074c6db46ddcbb321c905c29919"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00064.pt",
+      "size_bytes": 37901781,
+      "sha256": "35ba2d7398fcf43a8ac698d1146989c313cf5f7fefe9854998dd2070c4c1a48c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00065.pt",
+      "size_bytes": 37901781,
+      "sha256": "ad778b65bb6690420c0336a2f904a7bec8dbe744f89043a5cecba59a4728446e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00066.pt",
+      "size_bytes": 37901781,
+      "sha256": "783d9b73d8785fce66f49c913fcfe0c7643199e1bf67705fcffda1526af0515e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00067.pt",
+      "size_bytes": 37901781,
+      "sha256": "a2fea30006b8ab3ee7262ce5b5f4d7116893505d8ae56b87166d0df6bcdc86e2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00068.pt",
+      "size_bytes": 37901781,
+      "sha256": "6f98ebaf2227529d90c8d25788d4ba94ac132247916d87076cb08ef0e178a79d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00069.pt",
+      "size_bytes": 37901781,
+      "sha256": "991cc26aa8da10870ce136d02d65d614013c716aadfeca5916dd32687958d12e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00070.pt",
+      "size_bytes": 37901781,
+      "sha256": "f9b76dfd98f46d759af554507dfeeeb067de77a01d3c67c5351a4a8f228bf4b0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00071.pt",
+      "size_bytes": 37901781,
+      "sha256": "18b2227bde9a84c6b3b48bc87fe0e7384f26d6f70af14ed6a6986414bbc22826"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00072.pt",
+      "size_bytes": 37901781,
+      "sha256": "d89882dc0f04e0f96c5867792b8c87a29b3ec7c2f4e22de5ac4ffb34b86e7e30"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00073.pt",
+      "size_bytes": 37901781,
+      "sha256": "d1b0760b1428a7985aaa2a62bac1cdadbd1169085ac80dcffb47a96a4a2bca11"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00074.pt",
+      "size_bytes": 37901781,
+      "sha256": "bf49da31eeba84c4da0f07827a31610b1a146776fc07f42c77dbb073059be64d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00075.pt",
+      "size_bytes": 37901781,
+      "sha256": "b7e9c8c32b42a6d19dd6e12f83cfc3b81a6cd382febf99ab99e9579acd0e4fd3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00076.pt",
+      "size_bytes": 37901781,
+      "sha256": "2cea448a2ff9f918de68c8eb7bd14b9200a9d0d0e8c32fea700baeb4b42dbf75"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00077.pt",
+      "size_bytes": 37901781,
+      "sha256": "32789ab6203715617b86a970a3ea6c07407b26150bc625fdbca24c93b47b2148"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00078.pt",
+      "size_bytes": 37901781,
+      "sha256": "f755997e41b4cce87528b127c84d05a9c76aaf33728cee602f34e2c38450d6ba"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00079.pt",
+      "size_bytes": 37901781,
+      "sha256": "02f1f550847f19425b63a1ef28502d5dc82d2f685c0f320979b595faff36ebfe"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00080.pt",
+      "size_bytes": 37901781,
+      "sha256": "3f0816abc047757760f0abcd5e78712ae1887acf405f8325470814a39f7be8b7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00081.pt",
+      "size_bytes": 37901781,
+      "sha256": "9ad2c8fde8c4c38ed61abdcb491d866aa986f39a1e45077f51de31a89aba5114"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00082.pt",
+      "size_bytes": 37901781,
+      "sha256": "c2fc2e8d733758d26948301ab1c8f7c0814bfb5d6c7653a412a65e6b2657eb3c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00083.pt",
+      "size_bytes": 37901781,
+      "sha256": "d5c29b8a9e27f0ac7676138c39c60884b467289be734adadbcdf2d6793e2fc8f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00084.pt",
+      "size_bytes": 37901781,
+      "sha256": "84579b3c81085e0fa2c8ed44f819a18608310eeecdcbd4a005f6c4c9f6e1d8ef"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00085.pt",
+      "size_bytes": 37901781,
+      "sha256": "d81c1c848536e4fae61a31a52df866bdabbce3e2814a0c3fa0bab3c3d767eb59"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00086.pt",
+      "size_bytes": 37901781,
+      "sha256": "dc9c5293c80421b31223b85b68174ec366cae29fb2f783cd0cb9052cbdacdee8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00087.pt",
+      "size_bytes": 37901781,
+      "sha256": "1296c40e1c4a3894a6b9595d4544bff1449feb6b7889f3f873b9c4d73e3569f0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00088.pt",
+      "size_bytes": 37901781,
+      "sha256": "17b9dc1e8dcfdc321815df7fefc0cd9d36e4a0a232c4d10246398e3442bfda55"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00089.pt",
+      "size_bytes": 37901781,
+      "sha256": "d8e8b69632f998ba30a84c44b8edc890373afbe44e723a78057b6bca5676e77d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00090.pt",
+      "size_bytes": 37901781,
+      "sha256": "8f281606ca3f59386d04a6799c6625ae7f449aa6956f282888f7d92713d04bfc"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00091.pt",
+      "size_bytes": 37901781,
+      "sha256": "33f4e87bb96ba71b780220009e8c267249bb77b8bd1f34d20178d3055ec73d18"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00092.pt",
+      "size_bytes": 37901781,
+      "sha256": "341401a914cbe8dadfbeda953f96977b20a67e4e4859afba3ef903e5453abf93"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00093.pt",
+      "size_bytes": 37901781,
+      "sha256": "2952330ca28e468597501384e3f21a41ee5be3870164bcfc5066b1ac59510bd8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00094.pt",
+      "size_bytes": 37901781,
+      "sha256": "6579264d07d39c0dbc40c032531e17118c00a7117d78d76c980b09d0985bb4fc"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00095.pt",
+      "size_bytes": 37901781,
+      "sha256": "8192edc0bfb3064a3f8f401077dcba405f7241320a2230681b43a55f627acebf"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00096.pt",
+      "size_bytes": 37901781,
+      "sha256": "d31aa8a52bee09be2be02d62371fcf78626bb65b14c2e8a5bf6f392f616dbda1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00097.pt",
+      "size_bytes": 37901781,
+      "sha256": "811a7e5d4f9a645f673a5d9171e762e5bd407d5296391d4e9e412a037e7001d6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00098.pt",
+      "size_bytes": 37901781,
+      "sha256": "cdfc2790f0732d82f908f829ef282a391f20887479a6c14eb4e21922a1716dc8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00099.pt",
+      "size_bytes": 37901781,
+      "sha256": "522e45fffdcb0813930183a9e124f65bdad6e79771bd8f3e1288662cff206726"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00100.pt",
+      "size_bytes": 37901781,
+      "sha256": "c26cd51829cb274d3fd7ba25ea8cb9e37e1ff97f43b18b198e97a1ef67d03ee3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00101.pt",
+      "size_bytes": 37901781,
+      "sha256": "0f4bf0c2fcbbb3276c352765e18377f31fc7a60d33ff7d6f2eb0a820142a4b0b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00102.pt",
+      "size_bytes": 37901781,
+      "sha256": "7af59c719b07102a1322c3f1d5757beb3d7e9013e79d2756b27d098b14515c38"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00103.pt",
+      "size_bytes": 37901781,
+      "sha256": "08a7cd73ed43618cd083ba26b48ca9a632f05ea8ad7091ad3b5074f3bcaca13b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00104.pt",
+      "size_bytes": 37901781,
+      "sha256": "59112b96eee1b37dcd6854b14047073d096bb1b81cd8607f81158bbc95192419"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00105.pt",
+      "size_bytes": 37901781,
+      "sha256": "45c75ac7e4b197e9da137d4cbcca23415ddb84e77170cb25782b93ee49efeac4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00106.pt",
+      "size_bytes": 37901781,
+      "sha256": "8b174c8db32e52cc4575da148186a33ebe73fee84c4218e6ce868e57cc42d858"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00107.pt",
+      "size_bytes": 37901781,
+      "sha256": "a9cbc2a15c274194578b48d8942b7c91d54cf5b5f767b37746aba5e043c4757c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00108.pt",
+      "size_bytes": 37901781,
+      "sha256": "80a0c5ad8c4ce159eff90778189ef191d95586c0f46718f1d89b7d8d54605536"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00109.pt",
+      "size_bytes": 37901781,
+      "sha256": "329609960c7d8f77d705af9482ec04c82081227c85a6f76f25c68d7f3c167975"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00110.pt",
+      "size_bytes": 37901781,
+      "sha256": "ae0d8cd16a6bd22c0cecbf9d80ba6440cb9bf2e33ef98fefc67220153d5e65d1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00111.pt",
+      "size_bytes": 37901781,
+      "sha256": "4c806721054ef3a420fc114fdaa8babcf7ceb180f8b8ed97700e93efb9200026"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00112.pt",
+      "size_bytes": 37901781,
+      "sha256": "a12319241d6e737a9483f4235be3c445e8d053086d4088df8de97d69a91de2b3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00113.pt",
+      "size_bytes": 37901781,
+      "sha256": "25b942efac26ab5916a4b206d4658d7d0fef09631691f2299272f83be1b82591"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00114.pt",
+      "size_bytes": 37901781,
+      "sha256": "223caeb506de1718049585d525e53052ceab242ffd44305cbe79a4f5f8647dfd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00115.pt",
+      "size_bytes": 37901781,
+      "sha256": "5abafad0b0d8bab889e528d98777d621be3a7650f476bcf53dbacd3bf9d9efde"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00116.pt",
+      "size_bytes": 37901781,
+      "sha256": "caa989444a9d3c0227ccd4a9b3e4cc770a9b628a0168791dbdb11d5223d49538"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00117.pt",
+      "size_bytes": 37901781,
+      "sha256": "1520ad53232846d29f1dd10514cb670b06ad97c826604406ab81a75daeb16408"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00118.pt",
+      "size_bytes": 37901781,
+      "sha256": "82779d59a35d76a5c664be66b7edefbcc451ae41bf4b4d252add4bb681e2863b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00119.pt",
+      "size_bytes": 37901781,
+      "sha256": "9bfd03870533bca3a14421a7ccdd28be7ebde169785bf35b1a70c49c0b306df9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00120.pt",
+      "size_bytes": 37901781,
+      "sha256": "07718823758753cde255ce6c887040abdb8b10559e34b8b5223df1e549d194a0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00121.pt",
+      "size_bytes": 37901781,
+      "sha256": "fdde8136e65100e681fa4ae0f1e2e5b50796d710ef58f426bad62f0d8872d2f7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00122.pt",
+      "size_bytes": 37901781,
+      "sha256": "e4ddb8c2c89a9ce9a280b4e0ae5c9d0d325874e83f59183dc6cf160ec37ebd62"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00123.pt",
+      "size_bytes": 37901781,
+      "sha256": "83dc1f976e45672b24c51396176f17e7b08fef44660a013d416265d66fcf41a9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00124.pt",
+      "size_bytes": 37901781,
+      "sha256": "1de0ef3ec6058c5fe3c93d2a6ea8d92ff141415091698aaed25a1f9b7287c85f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00125.pt",
+      "size_bytes": 37901781,
+      "sha256": "2c7f1dc6cb16dc45f77adca4e84d2dda3f1030ab39d55a57425c89c5774c9bd1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00126.pt",
+      "size_bytes": 37901781,
+      "sha256": "7c403e5acf8a40d698368e6cf6646a4491729c52ba426538e30f26033eaee890"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/source/shards/00127.pt",
+      "size_bytes": 37901781,
+      "sha256": "36ebb9b8cbefd560526cf977210de5721f05a341d1a89362cd79b6c2103c5367"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00000.pt",
+      "size_bytes": 37901781,
+      "sha256": "12140809453fb8f9caa957b9650babf9cbf7b5e05ab43b6f8a9ed742d20277b6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00001.pt",
+      "size_bytes": 37901781,
+      "sha256": "7a4fe6ef0554ae71114ff384f9d83d6dc3867306c0c379d2e96e208f7d605da7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00002.pt",
+      "size_bytes": 37901781,
+      "sha256": "4c0d3de9f2272b844630e8b2fc85a0e9f6972912695eeb96187c5df9092c1390"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00003.pt",
+      "size_bytes": 37901781,
+      "sha256": "a5d0fbeb60fdc022b9d36d88934c4031f0ce960bf6740726581955b4ca92cfbd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00004.pt",
+      "size_bytes": 37901781,
+      "sha256": "a5c5954eb096f91e947bf322e6ac4f883134cba8ecc2d7b2b5e7e74266157d16"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00005.pt",
+      "size_bytes": 37901781,
+      "sha256": "af861febcc8ec8177c671b23be06f80b5ab9da686532f4d53be1f22fbe6a8c9f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00006.pt",
+      "size_bytes": 37901781,
+      "sha256": "b0ce8b55f3841a3a254895fa464dc98532d8e35d4603713922b5743e0367f9c2"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00007.pt",
+      "size_bytes": 37901781,
+      "sha256": "9027413a966d51e34991d966efe21d5b354e50192bf1e19a109248ee2da7565d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00008.pt",
+      "size_bytes": 37901781,
+      "sha256": "a0cb4c173a0b289f9876c7eef391e516dd6b74d3c0d8280ae306068dc318107e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00009.pt",
+      "size_bytes": 37901781,
+      "sha256": "37a8ca7d7d6abb602abd5248283b6fe3ffc05248acd323dfa2b87af0c184038d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00010.pt",
+      "size_bytes": 37901781,
+      "sha256": "b02533fd1417895d3234b76ff9859e0b233b1a4d76502360fd6912eb4b00d0c1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00011.pt",
+      "size_bytes": 37901781,
+      "sha256": "384d31e4eef9d78f926eb8e5de8ee16bbdf56f752a587ba4478e5ee63614e9cf"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00012.pt",
+      "size_bytes": 37901781,
+      "sha256": "bcb7c14b99a30c7728b3fcea32ec9f0970a2c620a313059008d6cc55431e1452"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00013.pt",
+      "size_bytes": 37901781,
+      "sha256": "477a2b6c71c28125d92a38d0ec1864536def06be459f3beda4cfb54d17c2984b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00014.pt",
+      "size_bytes": 37901781,
+      "sha256": "23cadcfe6e8426193710946e2498b56e753adc234f4ae04016da6873d12e6d18"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00015.pt",
+      "size_bytes": 37901781,
+      "sha256": "766c0697feac07f5da19c8b37131ba43ba7ceb10daa5bebd14b4aca963d15eef"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00016.pt",
+      "size_bytes": 37901781,
+      "sha256": "a7219be5f972ef9c005bebeec62257f5412ef5be645758b92e82bdad8a082729"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00017.pt",
+      "size_bytes": 37901781,
+      "sha256": "653ca1940b5da68cdb915b60f22c74f1328b9d8036ef0f723340966c5fec4df4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00018.pt",
+      "size_bytes": 37901781,
+      "sha256": "f8a1efac47af97fa831c746442508720dd54fa73a25b1d304aa056f31d73fabb"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00019.pt",
+      "size_bytes": 37901781,
+      "sha256": "9eb0130479e4211d595e33920eb6c2e1a89cd97b9d4f9f8afdfa4379dec40672"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00020.pt",
+      "size_bytes": 37901781,
+      "sha256": "37c156c6de08a6a6eaf045a782b6c91d79266c538219698a557a9363c7f6ed63"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00021.pt",
+      "size_bytes": 37901781,
+      "sha256": "fefdaf34f45b98460ff3a381ec1890b4595acd2db1eab38f76a1640270f13440"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00022.pt",
+      "size_bytes": 37901781,
+      "sha256": "242f51fcee3ff8fb7dcfcf39535fef52afaa8ba8655a2b87e0b692003c72767d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00023.pt",
+      "size_bytes": 37901781,
+      "sha256": "0aa1cf98e8ace2f5c3eeff230002ab159a60a2fb17885cfb2459a1139888a94f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00024.pt",
+      "size_bytes": 37901781,
+      "sha256": "38e5281984c2a5f8901b244fb893480a4e79606252ee730e6ecb3c7d4f4c3f47"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00025.pt",
+      "size_bytes": 37901781,
+      "sha256": "037563c802b52731bd90047809c0b471dd77959a39d5f3b066b514370eb981b8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00026.pt",
+      "size_bytes": 37901781,
+      "sha256": "7a094e78896e12d8762d366dc4c0752f7613ef29ac103dd3be55f4032d79d8d3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00027.pt",
+      "size_bytes": 37901781,
+      "sha256": "eed84a7756078429244e4be88be7cc2375dbdb5363b315dc18a36c07c203da60"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00028.pt",
+      "size_bytes": 37901781,
+      "sha256": "22081d54212b05cb4cb9812ac6d99e4b2ae560c4e7175bc34ee61b0bea12bcc8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00029.pt",
+      "size_bytes": 37901781,
+      "sha256": "b21053e54f86be930df4f54d22870f48fa296e31350f52b393b21baa0cf4f4a7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00030.pt",
+      "size_bytes": 37901781,
+      "sha256": "27bd0e568d12fbc921acc7106bc7d94ceab1c92e9c9b0cbfafd9eb9f87ab515d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00031.pt",
+      "size_bytes": 37901781,
+      "sha256": "59e2366bee99e23aa7ee92f02bd8cf05c6d86d8af290162b26a439bdf58f2db5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00032.pt",
+      "size_bytes": 37901781,
+      "sha256": "0ca025bedbdd95235a2ac972079e1ce57309d3250cb27f4697fada58e94dd954"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00033.pt",
+      "size_bytes": 37901781,
+      "sha256": "9bffbdfc4f2de3ae82a9032ebe2728ff5fe7e598bf2501a7ac6902e19c88d832"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00034.pt",
+      "size_bytes": 37901781,
+      "sha256": "ae01506dae0496b678ff0b0ba2219b05b748f05f29623a0db03a650a8f46a216"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00035.pt",
+      "size_bytes": 37901781,
+      "sha256": "ad9d2daabf3cedd5b3060a6985150da05be86561163b5ecfb2257f2eb7f7d2de"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00036.pt",
+      "size_bytes": 37901781,
+      "sha256": "fa25bc4ae94631f0f34abdc4b498fc535a124f8a737b99c50f0fe83210fc073b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00037.pt",
+      "size_bytes": 37901781,
+      "sha256": "39a6ccd79154a3af6a70a8e1ec228708e2904f0ef6bcb447644ed43635ea7fd4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00038.pt",
+      "size_bytes": 37901781,
+      "sha256": "9e85d2648c47394706754f77445f9ac7af4e03abf61c11d2ed70ef88f5477283"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00039.pt",
+      "size_bytes": 37901781,
+      "sha256": "eb0df346c3d84a90679992ffe6f3933ce96418a27d1061c2119ceba2b52e6e1d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00040.pt",
+      "size_bytes": 37901781,
+      "sha256": "d4abc1fc532847c2d85b6a5476f0ed6b3bbf954f584f799ab3eca4196f70cae1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00041.pt",
+      "size_bytes": 37901781,
+      "sha256": "69ca2256814eca6b03a82c3e12952fc07af921339474ae9469ca5bcc51bc233f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00042.pt",
+      "size_bytes": 37901781,
+      "sha256": "c79ff44c054bf996205e09ed004ab8b7e4e51c15c1e81f1c93c0e4dbf7c7d878"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00043.pt",
+      "size_bytes": 37901781,
+      "sha256": "53a0db8c9e3e9492fe2e08f9050385aa0be0d8f7434e27ceb7b52bc9dde98310"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00044.pt",
+      "size_bytes": 37901781,
+      "sha256": "73af9882bd2bde1d6fab2617dcb349d27f8cbc04f3cfb2dd36729bf4c866d77d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00045.pt",
+      "size_bytes": 37901781,
+      "sha256": "352419a789d90f9248018fa71e092388609d316789f6f7b3fa178cc3d083c007"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00046.pt",
+      "size_bytes": 37901781,
+      "sha256": "82b9f8e4ba835512f2c4e3556f23f9e128c81ab240d71a537f5a1b52a3aae09b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00047.pt",
+      "size_bytes": 37901781,
+      "sha256": "70f4827a62bb538b65fb790db134053f11fa7f2f50b65220d2a7514462dedaea"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00048.pt",
+      "size_bytes": 37901781,
+      "sha256": "dd782b8583e2c11f233390340260785afa7824c782a1c2b34c2f7eb315896fb7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00049.pt",
+      "size_bytes": 37901781,
+      "sha256": "517efdc86b0bdcc665befdbba14704641ef6360dbf38fcfbfe3ce463ebe830ee"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00050.pt",
+      "size_bytes": 37901781,
+      "sha256": "7b8a40920d706649a60f5c3726c5f506c6346103a45c7277a8e929cc937eff71"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00051.pt",
+      "size_bytes": 37901781,
+      "sha256": "e729311ad2964ce1c6ec28956c60f26deff481b894765c8006cf3c26849008f8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00052.pt",
+      "size_bytes": 37901781,
+      "sha256": "6e82086f2ec4ef61d8d552c54a6539fcc087db1beda7213c7dbbd50024892652"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00053.pt",
+      "size_bytes": 37901781,
+      "sha256": "821c5df1722ae45c097fc464ad4a04bcf074c99a49c8b02b9e85c77a692a1de3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00054.pt",
+      "size_bytes": 37901781,
+      "sha256": "7dae127cf08ba24f06a72767e3a1c052b4c2e34f091a0fabbd0740ce82f1a08a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00055.pt",
+      "size_bytes": 37901781,
+      "sha256": "4eb8d59c39efb15568fb2aafdf6b65cc589c13762f17437df2fa31cf63ba998e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00056.pt",
+      "size_bytes": 37901781,
+      "sha256": "7c3df0cb66f0aa9706442f46504132f39e7a50dc7d873363b9a5f0e164118065"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00057.pt",
+      "size_bytes": 37901781,
+      "sha256": "26cd26021d08665a559b4674c3d05b4cc0b5af88af2d158afdff63b898db5dd9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00058.pt",
+      "size_bytes": 37901781,
+      "sha256": "5888b57fb5b54f2a2e7c6a9ebd1d55352e1c7eac3b95259b32704f20e212f4b6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00059.pt",
+      "size_bytes": 37901781,
+      "sha256": "1668454ad7dd9c9f05be76a16a5a1c251c7bf27d205ad8298b7590e0a93e0c59"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00060.pt",
+      "size_bytes": 37901781,
+      "sha256": "917a2aaa3b9fc915c971ea36e5143e981f7a96b3836cb90be04624b190b81bf5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00061.pt",
+      "size_bytes": 37901781,
+      "sha256": "887d86b3920120088516c7a88450459386e66679797f67190203bd12cd15cdbf"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00062.pt",
+      "size_bytes": 37901781,
+      "sha256": "d331c7f42505e2f023850626346a00ae289c522ee6947bd590e1b9aab152a39b"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00063.pt",
+      "size_bytes": 37901781,
+      "sha256": "487eb98bc0fe4457eff92a33add70b54b461794232aa8a061645bd880b9ef707"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00064.pt",
+      "size_bytes": 37901781,
+      "sha256": "f90ba84da79e98816cdce97373aabe22c293938071d696346fd98068f0d22607"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00065.pt",
+      "size_bytes": 37901781,
+      "sha256": "2f6c42fbadcfa711bdd987e34e76db8a5876ed746ea48b2419a55dacf023ff0a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00066.pt",
+      "size_bytes": 37901781,
+      "sha256": "028099b7f968577da0c96774603df635ab17b1466c90f769a462ed3937840049"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00067.pt",
+      "size_bytes": 37901781,
+      "sha256": "3c856a7a20b389ba3e876bdf0f672e1417aa4ba4471eaf4d1d74bb6f3b7e35e1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00068.pt",
+      "size_bytes": 37901781,
+      "sha256": "95f1a49ea3a1204d28c9266417eceb8c51bf431482d3e4f0dfb9fb9079b6acb6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00069.pt",
+      "size_bytes": 37901781,
+      "sha256": "17bac7f9cbded3905fcd0652ad7e90ca607521794024d7e21961189329a0cfc5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00070.pt",
+      "size_bytes": 37901781,
+      "sha256": "145969c6da4df041e601590130a2a553161b8169a247cab42f7c7b576a2b1f4a"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00071.pt",
+      "size_bytes": 37901781,
+      "sha256": "fa9469a22b865522f63b987ef0e609a67686c42ee30e2b642b52d127b2938287"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00072.pt",
+      "size_bytes": 37901781,
+      "sha256": "ff099a0f6c62cb71f883f94538471d1cd28807b7f3b284923ca13eb7f828f0bd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00073.pt",
+      "size_bytes": 37901781,
+      "sha256": "86925c82f0b8a141c87f67a5b4ff7a777f5bed637328c313a4204fbbb5157264"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00074.pt",
+      "size_bytes": 37901781,
+      "sha256": "643e797b99d4775fa0a19d6012ca0857b2da9f98acc9f6e263a92edf19b07703"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00075.pt",
+      "size_bytes": 37901781,
+      "sha256": "e66f41a3f31a2898b5ee3eb6c716bc1a863411dd94095c25fe02aee99c6b8fe6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00076.pt",
+      "size_bytes": 37901781,
+      "sha256": "df7fe407f6749d848e94592c6efe72772e1d8d2c59907704beac248c50680ec0"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00077.pt",
+      "size_bytes": 37901781,
+      "sha256": "5913965ff9adfe0a0423967ad928ab4873d7168bda0622f699bacd191ad7a9e7"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00078.pt",
+      "size_bytes": 37901781,
+      "sha256": "7b538fafe546550d4e7c645bb2dd75925c5827375697f644052671284c751735"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00079.pt",
+      "size_bytes": 37901781,
+      "sha256": "1ae682787939492f019f29925ca33077bb4bbbbc9a49db5f5ef7fceefc7e629d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00080.pt",
+      "size_bytes": 37901781,
+      "sha256": "a17f36795c27c7a9abf90709d59048f78ec1f79b3e0959ac8b7d493fd43c56ac"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00081.pt",
+      "size_bytes": 37901781,
+      "sha256": "f06306fd1b7177faf3ff738ef44c67d3e9f1027857c1b8de228c346a384bfe72"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00082.pt",
+      "size_bytes": 37901781,
+      "sha256": "3a3211cc25dbe93497e9436b3460d873126648b4da9744544c652eb214e44b18"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00083.pt",
+      "size_bytes": 37901781,
+      "sha256": "dd26c5e7d5741b5d6aeea5c362dac03128816df0cd43ecff7668be0e8ab702b5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00084.pt",
+      "size_bytes": 37901781,
+      "sha256": "a155f4a5b16a94b7af37a281456ba38464742a9e4fba92d22e3004dd90d39af5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00085.pt",
+      "size_bytes": 37901781,
+      "sha256": "2440bd10cabbfa5bf862ccb3a639ac094b78ea3f4c7d0e3554f06568a893c871"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00086.pt",
+      "size_bytes": 37901781,
+      "sha256": "87cea849c23a2baab69268fb50c811914f1d89e230ebbb9463da7173293f2bfe"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00087.pt",
+      "size_bytes": 37901781,
+      "sha256": "86512d68d47c4a93fadd02bdb712771b73abb081b089d51b50f29b62736a3a62"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00088.pt",
+      "size_bytes": 37901781,
+      "sha256": "47e2dc4c0cd0405934592c67bb6245cea89e05841af40f2edfd24f4e2b9fd576"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00089.pt",
+      "size_bytes": 37901781,
+      "sha256": "7c08d3773a28a6097604b197aa2ee8b320d70d7c220d91d47823c4817de73d93"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00090.pt",
+      "size_bytes": 37901781,
+      "sha256": "4755fd3174a18031e785b35788966bc1c2b65ee06c4dd584b035d7a92bf23001"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00091.pt",
+      "size_bytes": 37901781,
+      "sha256": "5d6724c1704016a187075297aaa616c1df545fd5d37922857d81080ba0b35fc3"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00092.pt",
+      "size_bytes": 37901781,
+      "sha256": "8803810d109dfb6b777ea27f7bda010255d2f4dbaeb83080ae87eb39d4ea479f"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00093.pt",
+      "size_bytes": 37901781,
+      "sha256": "21e1e9354f85f150c45a3883c090384f7b1ad4d7c21f6c1e7906c121e4d9b6e8"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00094.pt",
+      "size_bytes": 37901781,
+      "sha256": "a88d2f677b44f6edc73182627de8a835982b6f12a5dfefb331552adbb9826862"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00095.pt",
+      "size_bytes": 37901781,
+      "sha256": "d29303a6d59df42864417ae69b72d39a4f94ed7d0eba4147e69867fe2b85e3a4"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00096.pt",
+      "size_bytes": 37901781,
+      "sha256": "f2079881d0a15270fa96580eb51677f968921fd7784f60c919f91197c9a74d07"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00097.pt",
+      "size_bytes": 37901781,
+      "sha256": "3027238710342768f832859d3c244ec4c8711c74c8d61a3d4d523c54d68be3ac"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00098.pt",
+      "size_bytes": 37901781,
+      "sha256": "e271e6967820acb24683dad1e9c6d9a6680f9765484bca5826639deae43091db"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00099.pt",
+      "size_bytes": 37901781,
+      "sha256": "69a88415808da61fb91eafab27bf326694baacce43fcc910ea0514c646b5bf59"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00100.pt",
+      "size_bytes": 37901781,
+      "sha256": "aab5637efb6f01ca823821a7d0cabe5f430ed31092b03a3a3509260e805bc7af"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00101.pt",
+      "size_bytes": 37901781,
+      "sha256": "64ba8348bfae1aff2b07b4dbf06f3dd58c892963520d026352d3ec7685a6fc83"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00102.pt",
+      "size_bytes": 37901781,
+      "sha256": "57a1156a9ae89e37ad716630da630c38906f6efcc7af7be0725b22ee6390afb9"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00103.pt",
+      "size_bytes": 37901781,
+      "sha256": "06032cd500f94bca7f0c40394b7d6791cf2bf0533f2c57fc64f237990f18e8ba"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00104.pt",
+      "size_bytes": 37901781,
+      "sha256": "68ee58c3c938ae5904e573fc6534f510b570405dcd7b9da230b37f1c71362ec5"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00105.pt",
+      "size_bytes": 37901781,
+      "sha256": "a61974a179ad28bb5a71b3cabf9e2ba627b856fd127e72fdfef7206e1e696bfd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00106.pt",
+      "size_bytes": 37901781,
+      "sha256": "d6efd9b2b85799c14959940deccb19f908200e92e5c9a25c0c44f9d68893d25d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00107.pt",
+      "size_bytes": 37901781,
+      "sha256": "142a22289ec77d8b0d03132fd81f6d3d98e0b58724c5bc410b1326d603bf4377"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00108.pt",
+      "size_bytes": 37901781,
+      "sha256": "d6a3f027fdb8bc51578b5be671573cda2a04bef67020e4936fec32dd85e2423e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00109.pt",
+      "size_bytes": 37901781,
+      "sha256": "6e38000225b740e1420ae74bd4740422928cbe12066caf9e832b9bad7e369aa6"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00110.pt",
+      "size_bytes": 37901781,
+      "sha256": "941498ccd84bcdea2247d64053ec83aee19c3507a731faec810fa49d13738a95"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00111.pt",
+      "size_bytes": 37901781,
+      "sha256": "7bd89dcdb4993486431c99cfbdd722be392313e2c12382857c8a871230a94079"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00112.pt",
+      "size_bytes": 37901781,
+      "sha256": "6ba44f1a7c23dccd69160049300de02762cfda6d7ca87b4612ff4e5ae98b3948"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00113.pt",
+      "size_bytes": 37901781,
+      "sha256": "a5085893fd9e15dc64c3798a19d2890b5d80b7ec6fb36bece32a81ab104113aa"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00114.pt",
+      "size_bytes": 37901781,
+      "sha256": "9c97a2501b9fbbd3a11aaf0bc36cce09c1c7a2173453098f76df3d8ed1efb553"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00115.pt",
+      "size_bytes": 37901781,
+      "sha256": "4bbea3a91bf09a7a67cf1306c1df87a08fbc82f70364d127e28a0471908958cd"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00116.pt",
+      "size_bytes": 37901781,
+      "sha256": "6774c5fc38c0fdba8f7c075019784bc486c93d4e2c6ffa3358582fe25ae61609"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00117.pt",
+      "size_bytes": 37901781,
+      "sha256": "6ad75615666154b21643c86d599bd17960ac7c82e8dd25766f845b737d65f437"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00118.pt",
+      "size_bytes": 37901781,
+      "sha256": "f169c1046491efa13d80ea09718e57233e069b6b9435d16daafe73bed8fdb555"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00119.pt",
+      "size_bytes": 37901781,
+      "sha256": "6498e1f1eb2f30e830854ea2e665c940d14386d124cc988f5794ee72b4d733d1"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00120.pt",
+      "size_bytes": 37901781,
+      "sha256": "172ffe4db0ea2fc41df31005d8667d4ad8723bd2decf16ddbe5486c31a1ae26d"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00121.pt",
+      "size_bytes": 37901781,
+      "sha256": "4491f21a3903efb83728d7a697b58286bad688fd2fa2f2c7b87c64b2c0c2eb2c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00122.pt",
+      "size_bytes": 37901781,
+      "sha256": "ff74d9de396964448b237f34d7ccb77d127d2a7e0ba9460f4614e4d88dfb514c"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00123.pt",
+      "size_bytes": 37901781,
+      "sha256": "c7df4fd8967fb3ad67a818ba00b3e28de603e2e5a575f2e2229121cb14774f68"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00124.pt",
+      "size_bytes": 37901781,
+      "sha256": "32628de7bc515a2468fa41497c068f036d96bd6b7eeb8d73cc4b2a7652152058"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00125.pt",
+      "size_bytes": 37901781,
+      "sha256": "6ff2e44764f49e786beb3712e9f9b7810b5620b481dfcd8aa1e2a1daa91f1011"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00126.pt",
+      "size_bytes": 37901781,
+      "sha256": "f55049e8eaf80d037c20110849fe672e16bbaac999fa0e29d92141c58349130e"
+    },
+    {
+      "path": "artifacts/paper_vs_subspace_2026-09-09/calibration/draft/shards/00127.pt",
+      "size_bytes": 37901781,
+      "sha256": "cb4eda52a0b8032bb6e74597f8937c3cc24c60625764905be29f1fb8c983b66f"
+    }
+  ]
+}
